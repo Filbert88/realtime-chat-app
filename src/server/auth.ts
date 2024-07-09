@@ -26,6 +26,9 @@ declare module "next-auth" {
       // ...other properties
     } & DefaultSession["user"];
   }
+  interface User {
+    id: string;
+  }
 }
 
 /**
@@ -35,17 +38,17 @@ declare module "next-auth" {
  */
 export const authOptions: NextAuthOptions = {
   callbacks: {
-    session: ({ session, user }) => {
-      if (user) {
-        return {
-          ...session,
-          user: {
-            ...session.user,
-            id: user.id,
-          },
-        };
+    session: async ({ session, token }) => {
+      if (token) {
+        session.user.id = token.id as string;
       }
       return session;
+    },
+    jwt: async ({ token, user }) => {
+      if (user) {
+        token.id = user.id;
+      }
+      return token;
     },
   },
   adapter: DrizzleAdapter(db, {
@@ -97,12 +100,14 @@ export const authOptions: NextAuthOptions = {
           throw new Error("Incorrect password.");
         }
 
+        console.log("user id", user.id)
+
         return { id: user.id, name: user.name, email: user.email };
       },
     }),
   ],
   session: {
-    strategy: "database",
+    strategy: "jwt",
   },
 };
 
