@@ -1,67 +1,100 @@
+"use client";
 import Link from "next/link";
-
-import { LatestPost } from "@/app/_components/post";
+import { useState } from "react";
 import { getServerAuthSession } from "@/server/auth";
-import { api, HydrateClient } from "@/trpc/server";
+import { api } from "@/trpc/react";
+import Loading from "./_components/Loading";
+import Toast from "./_components/Toast";
+import { ToastState } from "./_components/Toast";
+import { useSession } from "next-auth/react";
 
-export default async function Home() {
-  const hello = await api.post.hello({ text: "from tRPC" });
-  const session = await getServerAuthSession();
+export default function Home() {
+  const [uniqueID, setUniqueID] = useState("");
+  const [loading, setLoading] = useState<boolean>(false);
+  const [toast, setToast] = useState<ToastState>({
+    isOpen: false,
+    message: "",
+    type: "error",
+  });
+  const { data: session } = useSession();
+  console.log(session);
 
-  void api.post.getLatest.prefetch();
+  const addIdMutation = api.signup.addId.useMutation({
+    onMutate: () => {
+      setLoading(true);
+    },
+    onSuccess: () => {
+      setToast({
+        isOpen: true,
+        message: "ID added successfully!",
+        type: "success",
+      });
+      setLoading(false);
+    },
+    onError: (error) => {
+      setLoading(false);
+      setToast({ isOpen: true, message: error.message, type: "error" });
+    },
+  });
+
+  const handleAddId = () => {
+    console.log(session?.user?.id);
+    console.log(uniqueID);
+    if (session?.user?.id && uniqueID) {
+      addIdMutation.mutate({
+        userId: session.user.id,
+        appID: uniqueID,
+      });
+    }
+  };
+
+  if (loading) {
+    return <Loading />;
+  }
 
   return (
-    <HydrateClient>
-      <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-[#2e026d] to-[#15162c] text-white">
-        <div className="container flex flex-col items-center justify-center gap-12 px-4 py-16">
-          <h1 className="text-5xl font-extrabold tracking-tight sm:text-[5rem]">
-            Create <span className="text-[hsl(280,100%,70%)]">T3</span> App
-          </h1>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:gap-8">
-            <Link
-              className="flex max-w-xs flex-col gap-4 rounded-xl bg-white/10 p-4 hover:bg-white/20"
-              href="https://create.t3.gg/en/usage/first-steps"
-              target="_blank"
-            >
-              <h3 className="text-2xl font-bold">First Steps →</h3>
-              <div className="text-lg">
-                Just the basics - Everything you need to know to set up your
-                database and authentication.
-              </div>
-            </Link>
-            <Link
-              className="flex max-w-xs flex-col gap-4 rounded-xl bg-white/10 p-4 hover:bg-white/20"
-              href="https://create.t3.gg/en/introduction"
-              target="_blank"
-            >
-              <h3 className="text-2xl font-bold">Documentation →</h3>
-              <div className="text-lg">
-                Learn more about Create T3 App, the libraries it uses, and how
-                to deploy it.
-              </div>
-            </Link>
+    <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-[#2e026d] to-[#15162c] text-white">
+      <div className="container flex flex-col items-center justify-center gap-12 px-4 py-16">
+        <h1 className="text-5xl font-extrabold tracking-tight sm:text-[5rem]">
+          Hi,{" "}
+          <span className="capitalize text-[hsl(280,100%,70%)]">
+            {session?.user?.name}
+          </span>
+        </h1>
+        <div className="flex flex-col items-center gap-2">
+          <div className="text-xl font-semibold">
+            Before continue, let's make your ID
           </div>
-          <div className="flex flex-col items-center gap-2">
-            <p className="text-2xl text-white">
-              {hello ? hello.greeting : "Loading tRPC query..."}
-            </p>
-
-            <div className="flex flex-col items-center justify-center gap-4">
-              <p className="text-center text-2xl text-white">
-                {session && <span>Logged in as {session.user?.name}</span>}
-              </p>
-              <Link
-                href={session ? "/api/auth/signout" : "/api/auth/signin"}
-                className="rounded-full bg-white/10 px-10 py-3 font-semibold no-underline transition hover:bg-white/20"
-              >
-                {session ? "Sign out" : "Sign in"}
-              </Link>
-            </div>
-          </div>
-
-          {session?.user && <LatestPost />}
+          <input
+            placeholder="Your unique ID"
+            className="rounded-lg bg-white/20 p-3"
+            value={uniqueID}
+            onChange={(e) => setUniqueID(e.target.value)}
+          />
+          <button
+            onClick={handleAddId}
+            className="mt-4 rounded-full bg-white/10 px-10 py-3 font-semibold no-underline transition hover:bg-white/20"
+          >
+            Submit ID
+          </button>
         </div>
-      </main>
-    </HydrateClient>
+        <div className="flex flex-col items-center gap-2">
+          <div className="flex flex-col items-center justify-center gap-4">
+            <Link
+              href="/chat"
+              className="rounded-full bg-white/10 px-10 py-3 font-semibold no-underline transition hover:bg-white/20"
+            >
+              Let's Chat
+            </Link>
+          </div>
+        </div>
+      </div>
+      <Toast
+        isOpen={toast.isOpen}
+        message={toast.message}
+        type={toast.type}
+        closeToast={() => setToast({ ...toast, isOpen: false })}
+      />
+    </main>
   );
 }
