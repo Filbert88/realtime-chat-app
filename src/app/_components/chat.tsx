@@ -53,8 +53,17 @@ const Chat: React.FC<ChatProps> = ({ friendId }) => {
     }
   }, [friendData]);
 
-  if (isMessagesLoading || isFriendLoading) return <div>Loading...</div>;
-  if (messagesError || friendError) return <div>Error: {messagesError?.message ?? friendError?.message}</div>;
+  if(isMessagesLoading){
+    return <div>Loading...</div>;
+  }
+
+  if(isFriendLoading){
+    return <div>Loading...</div>;
+  }
+
+  if(messagesError){
+    return <div>Error: {messagesError?.message ?? friendError?.message}</div>;
+  }
 
   const getAvatarInitials = (name: string) => {
     return name ? name.charAt(0).toUpperCase() : '';

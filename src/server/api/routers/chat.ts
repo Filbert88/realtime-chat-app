@@ -32,7 +32,11 @@ export const chatRouter = createTRPCRouter({
         .from(users)
         .where(eq(users.id, receiverId));
 
-      if (!sender || !receiver) {
+      if (!sender) {
+        throw new Error("Invalid sender or receiver ID");
+      }
+
+      if (!receiver) {
         throw new Error("Invalid sender or receiver ID");
       }
 
@@ -104,40 +108,42 @@ export const chatRouter = createTRPCRouter({
       return chatMessages;
     }),
 
-    getFriendsAndConversations: publicProcedure
+  getFriendsAndConversations: publicProcedure
     .input(z.object({ userId: z.string().uuid() }))
     .query(async ({ input }) => {
       const { userId } = input;
 
-      const friendsList: FriendOrSenderDetails[] = (await db
-        .select({
-          id: users.id,
-          name: users.name,
-          email: users.email,
-          appID: users.appID,
-        })
-        .from(friends)
-        .where(eq(friends.userId, userId))
-        .innerJoin(users, eq(friends.friendAppID, users.appID)))
-        .map(friend => ({
-          ...friend,
-          appID: friend.appID || ''
-        }));
+      const friendsList: FriendOrSenderDetails[] = (
+        await db
+          .select({
+            id: users.id,
+            name: users.name,
+            email: users.email,
+            appID: users.appID,
+          })
+          .from(friends)
+          .where(eq(friends.userId, userId))
+          .innerJoin(users, eq(friends.friendAppID, users.appID))
+      ).map((friend) => ({
+        ...friend,
+        appID: friend.appID || "",
+      }));
 
-      const receivedMessages: FriendOrSenderDetails[] = (await db
-        .select({
-          id: users.id,
-          name: users.name,
-          email: users.email,
-          appID: users.appID,
-        })
-        .from(messages)
-        .where(eq(messages.receiverId, userId))
-        .innerJoin(users, eq(messages.senderId, users.id)))
-        .map(msg => ({
-          ...msg,
-          appID: msg.appID || ''
-        }));
+      const receivedMessages: FriendOrSenderDetails[] = (
+        await db
+          .select({
+            id: users.id,
+            name: users.name,
+            email: users.email,
+            appID: users.appID,
+          })
+          .from(messages)
+          .where(eq(messages.receiverId, userId))
+          .innerJoin(users, eq(messages.senderId, users.id))
+      ).map((msg) => ({
+        ...msg,
+        appID: msg.appID || "",
+      }));
 
       const friendsSet = new Map<string, FriendOrSenderDetails>();
 
