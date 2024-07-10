@@ -38,17 +38,23 @@ declare module "next-auth" {
  */
 export const authOptions: NextAuthOptions = {
   callbacks: {
-    session: async ({ session, token }) => {
-      if (token) {
-        session.user.id = token.id as string;
-      }
-      return session;
-    },
-    jwt: async ({ token, user }) => {
+    async jwt({ token, user }) {
+      console.log("JWT callback - token:", token);
+      console.log("JWT callback - user:", user);
       if (user) {
         token.id = user.id;
       }
+      console.log("JWT callback - modified token:", token);
       return token;
+    },
+    async session({ session, token }) {
+      console.log("Session callback - session:", session);
+      console.log("Session callback - token:", token);
+      if (token) {
+        session.user.id = token.id as string;
+      }
+      console.log("Session callback - modified session:", session);
+      return session;
     },
   },
   adapter: DrizzleAdapter(db, {
@@ -100,7 +106,7 @@ export const authOptions: NextAuthOptions = {
           throw new Error("Incorrect password.");
         }
 
-        console.log("user id", user.id)
+        console.log("user id tes tes", user.id)
 
         return { id: user.id, name: user.name, email: user.email };
       },

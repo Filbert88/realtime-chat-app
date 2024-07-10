@@ -7,6 +7,7 @@ import Loading from "./_components/Loading";
 import Toast from "./_components/Toast";
 import { ToastState } from "./_components/Toast";
 import { useSession } from "next-auth/react";
+import { signOut } from "next-auth/react";
 
 export default function Home() {
   const [uniqueID, setUniqueID] = useState("");
@@ -17,7 +18,7 @@ export default function Home() {
     type: "error",
   });
   const { data: session } = useSession();
-  console.log(session);
+  console.log("ini session", session);
 
   const addIdMutation = api.signup.addId.useMutation({
     onMutate: () => {
@@ -48,6 +49,10 @@ export default function Home() {
     }
   };
 
+  const handleSignOut = () => {
+    signOut();
+  };
+
   if (loading) {
     return <Loading />;
   }
@@ -60,6 +65,9 @@ export default function Home() {
           <span className="capitalize text-[hsl(280,100%,70%)]">
             {session?.user?.name}
           </span>
+          <div>
+            <p>Your user ID is: {session?.user?.id}</p>
+          </div>
         </h1>
         <div className="flex flex-col items-center gap-2">
           <div className="text-xl font-semibold">
@@ -88,6 +96,7 @@ export default function Home() {
             </Link>
           </div>
         </div>
+        <button onClick={handleSignOut}>Sign Out</button>
       </div>
       <Toast
         isOpen={toast.isOpen}
