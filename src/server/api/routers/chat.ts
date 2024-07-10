@@ -126,7 +126,7 @@ export const chatRouter = createTRPCRouter({
           .innerJoin(users, eq(friends.friendAppID, users.appID))
       ).map((friend) => ({
         ...friend,
-        appID: friend.appID || "",
+        appID: friend.appID ?? "",
       }));
 
       const receivedMessages: FriendOrSenderDetails[] = (
@@ -142,7 +142,7 @@ export const chatRouter = createTRPCRouter({
           .innerJoin(users, eq(messages.senderId, users.id))
       ).map((msg) => ({
         ...msg,
-        appID: msg.appID || "",
+        appID: msg.appID ?? "",
       }));
 
       const friendsSet = new Map<string, FriendOrSenderDetails>();
