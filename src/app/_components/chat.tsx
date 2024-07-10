@@ -24,7 +24,7 @@ const Chat: React.FC<ChatProps> = ({ friendId }) => {
 
   const sendMessageMutation = api.chat.sendMessage.useMutation({
     onSuccess: () => {
-      refetch(); 
+      void refetch(); 
     },
   });
 

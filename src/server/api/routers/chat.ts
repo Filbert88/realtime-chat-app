@@ -4,6 +4,13 @@ import { db } from "@/server/db";
 import { messages, users, conversations, friends } from "@/server/db/schema";
 import { eq, and, or } from "drizzle-orm/expressions";
 
+interface FriendOrSenderDetails {
+  id: string;
+  name: string;
+  email: string;
+  appID: string;
+}
+
 export const chatRouter = createTRPCRouter({
   sendMessage: publicProcedure
     .input(
@@ -101,45 +108,51 @@ export const chatRouter = createTRPCRouter({
     .input(z.object({ userId: z.string().uuid() }))
     .query(async ({ input }) => {
       const { userId } = input;
-  
-      const friendsList = await db
+
+      const friendsList: FriendOrSenderDetails[] = (await db
         .select({
-          user: users,
-          friendDetails: users
+          id: users.id,
+          name: users.name,
+          email: users.email,
+          appID: users.appID,
         })
         .from(friends)
         .where(eq(friends.userId, userId))
-        .innerJoin(users, eq(friends.friendAppID, users.appID))
-        .execute();
-  
-      const receivedMessages = await db
+        .innerJoin(users, eq(friends.friendAppID, users.appID)))
+        .map(friend => ({
+          ...friend,
+          appID: friend.appID || ''
+        }));
+
+      const receivedMessages: FriendOrSenderDetails[] = (await db
         .select({
-          user: users,
-          senderDetails: users
+          id: users.id,
+          name: users.name,
+          email: users.email,
+          appID: users.appID,
         })
         .from(messages)
         .where(eq(messages.receiverId, userId))
-        .innerJoin(users, eq(messages.senderId, users.id))
-        .execute();
-  
-      // Merge friendsList and uniqueSenders, ensuring no duplicates
-      const friendsSet = new Map();
-  
+        .innerJoin(users, eq(messages.senderId, users.id)))
+        .map(msg => ({
+          ...msg,
+          appID: msg.appID || ''
+        }));
+
+      const friendsSet = new Map<string, FriendOrSenderDetails>();
+
       friendsList.forEach((friend) => {
-        friendsSet.set(friend.friendDetails.id, friend.friendDetails);
+        friendsSet.set(friend.id, friend);
       });
-  
+
       receivedMessages.forEach((msg) => {
-        if (!friendsSet.has(msg.senderDetails.id)) {
-          friendsSet.set(msg.senderDetails.id, msg.senderDetails);
+        if (!friendsSet.has(msg.id)) {
+          friendsSet.set(msg.id, msg);
         }
       });
-  
+
       const uniqueFriendsAndSenders = Array.from(friendsSet.values());
-  
+
       return uniqueFriendsAndSenders;
     }),
-  
-
-
 });

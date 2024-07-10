@@ -12,7 +12,7 @@ export const friendRouter = createTRPCRouter({
         friendAppID: z.string().min(1),
       }),
     )
-    .mutation(async ({ input, ctx }) => {
+    .mutation(async ({ input }) => {
       const { userId, friendAppID } = input;
 
       if (!userId) {
@@ -32,13 +32,18 @@ export const friendRouter = createTRPCRouter({
         throw new Error("Friend not found");
       }
 
+      if (!friend.appID) {
+        throw new Error("Friend appID is invalid");
+      }
+
       await db.insert(friends).values({
-        userId: userId as string,
-        friendAppID: friend.appID as string,
+        userId,
+        friendAppID: friend.appID,
       });
 
       return { message: "Friend added successfully" };
     }),
+    
   getFriends: publicProcedure
     .input(z.object({ userId: z.string().uuid() }))
     .query(async ({ input }) => {

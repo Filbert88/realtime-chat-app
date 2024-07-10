@@ -39,7 +39,7 @@ const ChatPage: React.FC = () => {
         type: "success",
       });
       setLoading(false);
-      refetch();
+      void refetch();
     },
     onError: () => {
       setLoading(false);
