@@ -9,4 +9,5 @@ export default {
     url: env.DATABASE_URL,
   },
   tablesFilter: ["rtc_*"],
+  out: "./drizzle/migrations",
 } satisfies Config;

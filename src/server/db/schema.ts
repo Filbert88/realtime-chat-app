@@ -28,7 +28,7 @@ export const users = createTable("user", {
   password: text("password").notNull(),
   phone: varchar("phone", { length: 255 }).notNull().unique(),
   name: varchar("name", { length: 255 }).notNull(),
-  appID: varchar("app_id", { length: 255 }).unique(),
+  appID: varchar("app_id", { length: 255 }).unique(), 
   image: varchar("image_url", { length: 255 }),
   emailVerified: timestamp("email_verified"),
   createdAt: timestamp("created_at")
@@ -56,10 +56,7 @@ export const accounts = createTable("account", {
 });
 
 export const messages = createTable("msg", {
-  id: integer("id")
-    .notNull()
-    .primaryKey()
-    .$defaultFn(() => sql`nextval('msg_id_seq'::regclass)`),
+  id: serial("id").primaryKey(),
   content: text("content").notNull(),
   senderId: uuid("sender_id")
     .notNull()
@@ -87,6 +84,12 @@ export const conversations = createTable("cvs", {
   updatedAt: timestamp("updated_at")
     .default(sql`CURRENT_TIMESTAMP`)
     .$onUpdateFn(() => sql`CURRENT_TIMESTAMP`),
+  participant1Id: uuid("participant1_id")
+    .notNull()
+    .references(() => users.id),
+  participant2Id: uuid("participant2_id")
+    .notNull()
+    .references(() => users.id),
 });
 
 export const participants = createTable(
@@ -103,6 +106,25 @@ export const participants = createTable(
     pk: primaryKey(table.conversationId, table.userId),
   }),
 );
+
+export const friends = createTable("friends", {
+  id: uuid("id")
+    .notNull()
+    .primaryKey()
+    .$defaultFn(() => sql`uuid_generate_v4()`),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id),
+  friendAppID: varchar("friend_app_id", { length: 255 }) 
+    .notNull()
+    .references(() => users.appID),
+  createdAt: timestamp("created_at")
+    .default(sql`CURRENT_TIMESTAMP`)
+    .notNull(),
+  updatedAt: timestamp("updated_at")
+    .default(sql`CURRENT_TIMESTAMP`)
+    .$onUpdateFn(() => sql`CURRENT_TIMESTAMP`),
+});
 
 export const sessions = createTable("ssion", {
   sessionToken: varchar("session_token", { length: 255 })
@@ -131,20 +153,45 @@ export const usersRelations = relations(users, ({ many }) => ({
   sentMessages: many(messages),
   receivedMessages: many(messages),
   sessions: many(sessions),
+  friends: many(friends, { relationName: "userId" }),
+  friendsWithAppID: many(friends, { relationName: "friendAppID" }),
 }));
 
 export const messagesRelations = relations(messages, ({ one }) => ({
   sender: one(users),
   receiver: one(users),
+  conversation: one(conversations),
 }));
 
-export const conversationsRelations = relations(conversations, ({ many }) => ({
-  participants: many(participants),
-}));
+export const conversationsRelations = relations(
+  conversations,
+  ({ many, one }) => ({
+    participants: many(participants),
+    participant1: one(users, {
+      fields: [conversations.participant1Id],
+      references: [users.id],
+    }),
+    participant2: one(users, {
+      fields: [conversations.participant2Id],
+      references: [users.id],
+    }),
+  }),
+);
 
 export const participantsRelations = relations(participants, ({ one }) => ({
   user: one(users),
   conversation: one(conversations),
+}));
+
+export const friendsRelations = relations(friends, ({ one }) => ({
+  user: one(users, {
+    fields: [friends.userId],
+    references: [users.id],
+  }),
+  friend: one(users, {
+    fields: [friends.friendAppID],
+    references: [users.appID], 
+  }),
 }));
 
 export const sessionsRelations = relations(sessions, ({ one }) => ({
