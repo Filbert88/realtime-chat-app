@@ -15,7 +15,7 @@ export const userRouter = createTRPCRouter({
       const { id } = input;
 
       const [user] = await db
-        .select({ name: users.name })
+        .select({ name: users.name, appID : users.appID })
         .from(users)
         .where(eq(users.id, id));
 
@@ -23,6 +23,6 @@ export const userRouter = createTRPCRouter({
         throw new Error("User not found");
       }
 
-      return { name: user.name };
+      return { name: user.name, appID: user.appID };
     }),
 });

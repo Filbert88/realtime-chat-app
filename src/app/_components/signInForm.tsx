@@ -1,6 +1,6 @@
 "use client";
-import React, { useState, useEffect } from "react";
-import { useRouter, redirect } from "next/navigation";
+import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { signIn, useSession } from "next-auth/react";
 import Toast from "./Toast";
@@ -19,7 +19,6 @@ interface Touched {
 
 const SigninForm: React.FC = () => {
   const router = useRouter();
-  const { data: session, status } = useSession();
   const [email, setEmail] = useState<string>("");
   const [password, setPassword] = useState<string>("");
   const [showPassword, setShowPassword] = useState<boolean>(false);
@@ -49,7 +48,7 @@ const SigninForm: React.FC = () => {
   };
 
   const handlePasswordChange = (
-    e: React.ChangeEvent<HTMLInputElement>
+    e: React.ChangeEvent<HTMLInputElement>,
   ): void => {
     setPassword(e.target.value);
   };
@@ -77,7 +76,7 @@ const SigninForm: React.FC = () => {
   };
 
   const handleSubmit = async (
-    event: React.FormEvent<HTMLFormElement>
+    event: React.FormEvent<HTMLFormElement>,
   ): Promise<void> => {
     event.preventDefault();
 
@@ -120,25 +119,25 @@ const SigninForm: React.FC = () => {
   return (
     <div className="flex w-full max-w-[350px] flex-col gap-5 xl:gap-7">
       <form onSubmit={handleSubmit} className="flex flex-col items-center">
-        <div className="text-4xl mb-6 font-bold text-white">Sign In</div>
-        <div className="flex flex-col font-normal items-center w-full">
+        <div className="mb-6 text-4xl font-bold text-white">Sign In</div>
+        <div className="flex w-full flex-col items-center font-normal">
           <input
             placeholder="Email"
-            className="py-4 px-5 w-full sm:w-[350px] text-black rounded-md"
+            className="w-full rounded-md px-5 py-4 text-black sm:w-[350px]"
             value={email}
             onChange={handleEmailChange}
             onBlur={() => handleBlur("email")}
             required
           />
           {touched.email && errors.email && (
-            <div className="text-red text-sm w-full mt-1">{errors.email}</div>
+            <div className="mt-1 w-full text-sm text-red">{errors.email}</div>
           )}
         </div>
-        <div className="relative sm:w-[350px] w-full mt-6">
+        <div className="relative mt-6 w-full sm:w-[350px]">
           <input
             placeholder="Password"
             type={showPassword ? "text" : "password"}
-            className="py-4 px-5 w-full text-black rounded-md"
+            className="w-full rounded-md px-5 py-4 text-black"
             value={password}
             onChange={handlePasswordChange}
             onBlur={() => handleBlur("password")}
@@ -146,7 +145,7 @@ const SigninForm: React.FC = () => {
           />
           {password && (
             <div
-              className="absolute inset-y-0 right-0 flex items-center pr-3 cursor-pointer"
+              className="absolute inset-y-0 right-0 flex cursor-pointer items-center pr-3"
               onClick={togglePasswordVisibility}
             >
               <Image
@@ -159,18 +158,18 @@ const SigninForm: React.FC = () => {
           )}
         </div>
         {touched.password && errors.password && (
-          <div className="text-red text-sm w-full mt-1">{errors.password}</div>
+          <div className="mt-1 w-full text-sm text-red">{errors.password}</div>
         )}
         <button
           type="submit"
-          className="mt-4 rounded-lg py-3 px-5 sm:w-[350px] w-full text-white bg-red"
+          className="mt-4 w-full rounded-lg bg-red px-5 py-3 text-white sm:w-[350px]"
         >
           Sign In
         </button>
-        <div className="flex flex-row space-x-2 mt-2">
+        <div className="mt-2 flex flex-row space-x-2">
           <div className="text-gray-300">New here?</div>
           <a
-            className="hover:underline hover:cursor-pointer text-white"
+            className="text-white hover:cursor-pointer hover:underline"
             onClick={() => router.push("/signup")}
           >
             Sign up now.
