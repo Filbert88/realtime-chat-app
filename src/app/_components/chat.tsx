@@ -5,7 +5,7 @@ import { formatDistanceToNow } from "date-fns";
 import { api } from "@/trpc/react";
 
 const socket = io(
-  process.env.NODE_ENV === "production" ? "https://your-production-url.com" : "https://detailed-ermina-filbert21-6e08fb9f.koyeb.app/"
+  process.env.NODE_ENV === "production" ? "https://detailed-ermina-filbert21-6e08fb9f.koyeb.app/" : "https://detailed-ermina-filbert21-6e08fb9f.koyeb.app/"
 );
 
 interface ChatProps {
