@@ -62,7 +62,7 @@ const ChatPage: React.FC = () => {
   const onAddFriendClick = useCallback(() => {
     console.log("Refetching data...");
     setIsPopupOpen(true); 
-    refetch();
+    void refetch();
   }, [setIsPopupOpen, refetch]);
 
   const addFriendMutation = api.friend.addFriend.useMutation({

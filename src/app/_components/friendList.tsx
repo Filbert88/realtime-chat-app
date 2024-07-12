@@ -47,7 +47,7 @@ const FriendsList: React.FC<FriendsListProps> = ({
 
   useEffect(() => {
     const intervalId = setInterval(() => {
-      refetch();
+      void refetch();
     }, 5000);
 
     return () => clearInterval(intervalId);

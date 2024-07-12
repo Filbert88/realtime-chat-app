@@ -46,7 +46,7 @@ const Chat: React.FC<ChatProps> = ({ friendId, onBack }) => {
       }, {
         onSuccess: () => {
           console.log("Messages marked as read.");
-          refetch();  
+          void refetch();  
         },
         onError: (error) => {
           console.error("Failed to mark messages as read:", error);
