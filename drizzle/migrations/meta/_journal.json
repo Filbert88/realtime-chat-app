@@ -15,6 +15,13 @@
       "when": 1720612096714,
       "tag": "0001_puzzling_master_chief",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1720770557959,
+      "tag": "0002_wonderful_skreet",
+      "breakpoints": true
     }
   ]
 }

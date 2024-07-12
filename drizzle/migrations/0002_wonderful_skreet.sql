@@ -1,0 +1,1 @@
+ALTER TABLE "rtc_msg" ADD COLUMN "read" boolean DEFAULT false;
