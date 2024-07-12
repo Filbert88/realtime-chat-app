@@ -48,7 +48,7 @@ const FriendsList: React.FC<FriendsListProps> = ({
   useEffect(() => {
     const intervalId = setInterval(() => {
       void refetch();
-    }, 5000);
+    }, 2000);
 
     return () => clearInterval(intervalId);
   }, [refetch]);
@@ -135,8 +135,8 @@ const FriendsList: React.FC<FriendsListProps> = ({
               )}
               <div className="flex-grow">{friend.name}</div>
               {friend.unreadCount > 0 && (
-                <span className="bg-red-500 ml-4 rounded-full px-3 py-1 text-xs text-white">
-                  {friend.unreadCount} new
+                <span className="bg-[#44AD53] ml-4 rounded-full px-2 py-1 text-xs font-bold text-white">
+                  {friend.unreadCount}
                 </span>
               )}
             </li>

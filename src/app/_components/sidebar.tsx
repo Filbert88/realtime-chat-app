@@ -5,11 +5,14 @@ import {
   BellIcon,
   UserIcon,
 } from "@heroicons/react/24/outline";
+import { IoIosLogOut } from "react-icons/io";
+import { signOut } from "next-auth/react";
 import Popup from "./Popup";
 import { useSession } from "next-auth/react";
 import { api } from "@/trpc/react";
 import Loading from "./Loading";
 import { useToast } from "@/components/ui/use-toast";
+import { redirect } from "next/navigation";
 
 interface SidebarProps {
   refetch: () => void;
@@ -44,8 +47,12 @@ const Sidebar: React.FC<SidebarProps> = ({ refetch, activeIcon, setActiveIcon })
   });
 
   const handleIconClick = (iconName: string) => {
-    setIsPopupOpen(iconName === 'addFriend');
-    setActiveIcon(iconName);
+    if (iconName === 'logout') {
+      handleSignOut(); 
+    } else {
+      setIsPopupOpen(iconName === 'addFriend');
+      setActiveIcon(iconName);
+    }
   };
 
   const handleAddFriend = async (friendAppID: string) => {
@@ -67,6 +74,11 @@ const Sidebar: React.FC<SidebarProps> = ({ refetch, activeIcon, setActiveIcon })
     setIsPopupOpen(false);
   };
 
+  const handleSignOut = () => {
+    signOut();
+    redirect('/');
+  };
+
   if (loading) {
     return <Loading />;
   }
@@ -76,8 +88,8 @@ const Sidebar: React.FC<SidebarProps> = ({ refetch, activeIcon, setActiveIcon })
       <div className="flex flex-row md:flex-col md:space-y-6 space-x-6 md:space-x-0 md:items-start md:justify-start md:pt-4">
         <SidebarIcon icon={<ChatBubbleOvalLeftIcon className="h-6 w-6" />} onClick={() => handleIconClick('messages')} active={activeIcon === 'messages'} />
         <SidebarIcon icon={<UserPlusIcon className="h-6 w-6" />} onClick={() => handleIconClick('addFriend')} active={activeIcon === 'addFriend'} />
-        <SidebarIcon icon={<BellIcon className="h-6 w-6" />} onClick={() => handleIconClick('notifications')} active={activeIcon === 'notifications'} />
         <SidebarIcon icon={<UserIcon className="h-6 w-6" />} onClick={() => handleIconClick('profile')} active={activeIcon === 'profile'} />
+        <SidebarIcon icon={<IoIosLogOut className="h-6 w-6" />} onClick={() => handleIconClick('logout')} active={activeIcon === 'logout'} />
       </div>
       <Popup
         isOpen={isPopupOpen}

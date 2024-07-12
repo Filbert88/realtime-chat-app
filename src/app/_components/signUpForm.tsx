@@ -147,9 +147,9 @@ const SignUpForm: React.FC = () => {
         </div>
         <button
           type="submit"
-          className="mt-4 rounded-lg py-3 px-5 w-full sm:w-[350px] text-white bg-red"
+          className="mt-4 rounded-lg py-3 px-5 w-full sm:w-[350px] text-white bg-[#1F1F1F]"
         >
-          Submit
+          Sign Up
         </button>
         <div className="flex flex-row space-x-2 mt-2">
           <div className="text-gray-300">Already have an account?</div>

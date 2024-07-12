@@ -25,7 +25,10 @@ const CreateIDPage = () => {
   );
   useEffect(() => {
     if (!session && !loading && !userLoading) {
-      redirect("/signin");
+      toast({
+        title: "User has created the ID. You can chatting now ^.^",
+      });
+      redirect("/");
     } else if (session && user?.appID && !loading && !userLoading) {
       redirect("/chat");
     }

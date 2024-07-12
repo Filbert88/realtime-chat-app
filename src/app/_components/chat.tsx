@@ -18,20 +18,21 @@ interface ChatProps {
   onBack: () => void;
 }
 
+type Message = {
+  id?: number;
+  tempId?: number;
+  createdAt: Date;
+  updatedAt: Date | null;
+  content: string;
+  senderId: string;
+  receiverId: string;
+  conversationId: string;
+};
+
 const Chat: React.FC<ChatProps> = ({ friendId, onBack }) => {
   const { data: session } = useSession();
   const [message, setMessage] = useState("");
-  const [messages, setMessages] = useState<
-    {
-      id: number;
-      createdAt: Date;
-      updatedAt: Date | null;
-      content: string;
-      senderId: string;
-      receiverId: string;
-      conversationId: string;
-    }[]
-  >([]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [friendName, setFriendName] = useState<string>("");
   const messagesContainerRef = useRef<HTMLDivElement>(null);
 
@@ -140,8 +141,9 @@ const Chat: React.FC<ChatProps> = ({ friendId, onBack }) => {
 
   const sendMessage = () => {
     if (message.trim() && userData && friendData && session) {
+      const tempId = Date.now();
       const newMessage = {
-        id: Date.now(),
+        tempId,
         createdAt: new Date(),
         updatedAt: null,
         content: message,
@@ -165,13 +167,13 @@ const Chat: React.FC<ChatProps> = ({ friendId, onBack }) => {
           onSuccess: () => {
             setMessages((prevMessages) =>
               prevMessages.map((msg) =>
-                msg.id === newMessage.id ? { ...msg } : msg,
+                msg.tempId === tempId ? { ...msg, tempId: undefined } : msg
               ),
             );
           },
           onError: () => {
             setMessages((prevMessages) =>
-              prevMessages.filter((msg) => msg.id !== newMessage.id),
+              prevMessages.filter((msg) => msg.tempId !== tempId),
             );
           },
         },

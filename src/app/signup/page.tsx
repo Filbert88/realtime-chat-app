@@ -10,7 +10,7 @@ const SingUpPage = async () => {
     return redirect("/");
   }
   return (
-    <main className="flex flex-auto items-center justify-center bg-black min-h-screen overflow-hidden sm:px-0 px-5">
+    <main className="flex flex-auto items-center justify-center bg-[#2D2E30] min-h-screen overflow-hidden sm:px-0 px-5">
       <SignUpForm />
     </main>
   );

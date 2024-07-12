@@ -1,14 +1,14 @@
-"use client"
-import React, { useState, useCallback, useEffect } from 'react';
-import Chat from '../_components/chat';
-import FriendsList from '../_components/friendList';
-import Sidebar from '../_components/sidebar';
-import Popup from '../_components/Popup';
-import { useSession } from 'next-auth/react';
-import { api } from '@/trpc/react';
-import Loading from '../_components/Loading';
-import { redirect } from 'next/navigation';
-import { useToast } from '@/components/ui/use-toast';
+"use client";
+import React, { useState, useCallback, useEffect } from "react";
+import Chat from "../_components/chat";
+import FriendsList from "../_components/friendList";
+import Sidebar from "../_components/sidebar";
+import Popup from "../_components/Popup";
+import { useSession } from "next-auth/react";
+import { api } from "@/trpc/react";
+import Loading from "../_components/Loading";
+import { redirect } from "next/navigation";
+import { useToast } from "@/components/ui/use-toast";
 
 const ChatPage: React.FC = () => {
   const { toast } = useToast();
@@ -18,8 +18,8 @@ const ChatPage: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [isMobile, setIsMobile] = useState(false);
   const [showChat, setShowChat] = useState(false);
-  const [allDataLoading, setAllDataLoading] = useState(true); 
-  const [activeIcon, setActiveIcon] = useState<string>('messages');
+  const [allDataLoading, setAllDataLoading] = useState(true);
+  const [activeIcon, setActiveIcon] = useState<string>("messages");
 
   const updateMedia = () => {
     setIsMobile(window.innerWidth < 768);
@@ -33,35 +33,52 @@ const ChatPage: React.FC = () => {
   );
 
   useEffect(() => {
-    if (sessionStatus === 'loading' || userLoading) {
+    if (sessionStatus === "loading" || userLoading) {
       setAllDataLoading(true);
-    } else if (sessionStatus === 'unauthenticated') {
-      redirect('/signin');
+    } else if (sessionStatus === "unauthenticated") {
+      toast({
+        variant: "destructive",
+        title: "Please sign in first",
+      });
+      redirect("/");
     } else if (session && !user?.appID) {
-      redirect('/createID');
+      redirect("/createID");
     } else {
       setAllDataLoading(false);
     }
   }, [session, user?.appID, sessionStatus, userLoading]);
-  
+
   useEffect(() => {
     updateMedia();
-    window.addEventListener('resize', updateMedia);
+    window.addEventListener("resize", updateMedia);
     return () => {
-      window.removeEventListener('resize', updateMedia);
+      window.removeEventListener("resize", updateMedia);
     };
   }, []);
 
-  const { data: conversations, refetch } = api.chat.getFriendsAndConversations.useQuery(
-    { userId: session?.user?.id ?? '' },
-    {
-      enabled: !!session?.user?.id,
-    },
-  );
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && selectedFriend) {
+        handleBackToFriends();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [selectedFriend]);
+
+  const { data: conversations, refetch } =
+    api.chat.getFriendsAndConversations.useQuery(
+      { userId: session?.user?.id ?? "" },
+      {
+        enabled: !!session?.user?.id,
+      },
+    );
 
   const onAddFriendClick = useCallback(() => {
     console.log("Refetching data...");
-    setIsPopupOpen(true); 
+    setIsPopupOpen(true);
     void refetch();
   }, [setIsPopupOpen, refetch]);
 
@@ -93,7 +110,7 @@ const ChatPage: React.FC = () => {
           variant: "destructive",
           title: "User not authenticated",
         });
-        console.error('User not authenticated');
+        console.error("User not authenticated");
         return;
       }
       try {
@@ -103,7 +120,7 @@ const ChatPage: React.FC = () => {
           variant: "destructive",
           title: "Error adding friend",
         });
-        console.error('Error adding friend:', error);
+        console.error("Error adding friend:", error);
       }
     },
     [addFriendMutation, session?.user?.id],
@@ -111,14 +128,15 @@ const ChatPage: React.FC = () => {
 
   const handleSelectFriend = (friendId: string) => {
     setSelectedFriend(friendId);
-    if (isMobile) setShowChat(true); 
+    if (isMobile) setShowChat(true);
   };
   const handleBackToFriends = () => {
     setShowChat(false);
+    setSelectedFriend(null);
   };
 
   const handleCancelPopup = () => {
-    setActiveIcon('messages'); 
+    setActiveIcon("messages");
     setIsPopupOpen(false);
   };
 
@@ -127,17 +145,29 @@ const ChatPage: React.FC = () => {
   }
 
   return (
-    <div className={`flex h-screen bg-[#2D2E30] w-full pb-[4rem] md:pb-0`}>
-      <Sidebar refetch={refetch}  activeIcon={activeIcon} setActiveIcon={setActiveIcon} />
-      <div className={`w-full flex-1 ${showChat && isMobile ? 'hidden' : 'md:w-1/3'} overflow-y-auto chatMessages border-r border-gray-600`}>
+    <div className={`flex h-screen w-full bg-[#2D2E30] pb-[4rem] md:pb-0`}>
+      <Sidebar
+        refetch={refetch}
+        activeIcon={activeIcon}
+        setActiveIcon={setActiveIcon}
+      />
+      <div
+        className={`w-full flex-1 ${showChat && isMobile ? "hidden" : "md:w-1/3"} chatMessages overflow-y-auto border-r border-gray-600`}
+      >
         <FriendsList
           onSelectFriend={handleSelectFriend}
           onAddFriendClick={onAddFriendClick}
         />
       </div>
-      <div className={`${showChat || !isMobile ? 'block w-full' : 'hidden'} md:block md:w-2/3`}>
-        {selectedFriend && (
+      <div
+        className={`${showChat || !isMobile ? "block w-full" : "hidden"} md:block md:w-2/3`}
+      >
+        {selectedFriend ? (
           <Chat friendId={selectedFriend} onBack={handleBackToFriends} />
+        ) : (
+          <div className="flex h-full items-center justify-center text-white">
+            <p>Start a new conversation</p>
+          </div>
         )}
       </div>
       <Popup
