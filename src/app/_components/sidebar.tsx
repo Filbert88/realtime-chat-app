@@ -75,7 +75,7 @@ const Sidebar: React.FC<SidebarProps> = ({ refetch, activeIcon, setActiveIcon })
   };
 
   const handleSignOut = () => {
-    signOut();
+    void signOut();
     redirect('/');
   };
 
