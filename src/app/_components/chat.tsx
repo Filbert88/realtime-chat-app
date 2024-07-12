@@ -5,6 +5,7 @@ import { formatDistanceToNow, format } from "date-fns";
 import { api } from "@/trpc/react";
 import { IoSendSharp } from "react-icons/io5";
 import { IoArrowBack } from "react-icons/io5";
+import Loading from "./Loading";
 
 const socket = io(
   process.env.NODE_ENV === "production"
@@ -14,7 +15,7 @@ const socket = io(
 
 interface ChatProps {
   friendId: string;
-  onBack:() => void;
+  onBack: () => void;
 }
 
 const Chat: React.FC<ChatProps> = ({ friendId, onBack }) => {
@@ -201,12 +202,12 @@ const Chat: React.FC<ChatProps> = ({ friendId, onBack }) => {
   };
 
   if (isMessagesLoading) {
-    return <div>Loading...</div>;
+    return <Loading />;
   }
   if (isUserLoading) {
-    return <div>Loading...</div>;
+    return <Loading />;
   }
-  if (isFriendLoading) return <div>Loading...</div>;
+  if (isFriendLoading) return <Loading />;
 
   if (messagesError ?? friendError ?? userError)
     return (
@@ -217,9 +218,9 @@ const Chat: React.FC<ChatProps> = ({ friendId, onBack }) => {
     );
 
   return (
-    <div className="flex h-full flex-col w-full">
+    <div className="flex h-full w-full flex-col">
       <div className="bg-transparent p-4 text-lg font-semibold text-white">
-      <button onClick={onBack} className="pr-2">
+        <button onClick={onBack} className="pr-2">
           <IoArrowBack />
         </button>
         {friendName}
@@ -250,7 +251,9 @@ const Chat: React.FC<ChatProps> = ({ friendId, onBack }) => {
               }`}
             >
               <div>{msg.content}</div>
-              <div className={`text-xs ${msg.senderId === session?.user?.id ? "text-gray-600" : "text-gray-200"}`}>
+              <div
+                className={`text-xs ${msg.senderId === session?.user?.id ? "text-gray-600" : "text-gray-200"}`}
+              >
                 {formatDistanceToNow(new Date(msg.createdAt), {
                   addSuffix: true,
                 })}
@@ -261,7 +264,7 @@ const Chat: React.FC<ChatProps> = ({ friendId, onBack }) => {
       </div>
       <div className="flex items-center border-t border-gray-600 p-4">
         <textarea
-          className="flex-1 resize-none bg-transparent p-2 text-white focus:outline-none chatMessages"
+          className="chatMessages flex-1 resize-none bg-transparent p-2 text-white focus:outline-none"
           placeholder="Enter a message"
           value={message}
           onChange={(e) => setMessage(e.target.value)}

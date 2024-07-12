@@ -7,13 +7,14 @@ import Popup from '../_components/Popup';
 import { useSession } from 'next-auth/react';
 import { api } from '@/trpc/react';
 import Loading from '../_components/Loading';
+import { redirect } from 'next/navigation';
 import Toast from '../_components/Toast';
 import { ToastState } from '../_components/Toast';
 
 const ChatPage: React.FC = () => {
   const [selectedFriend, setSelectedFriend] = useState<string | null>(null);
   const [isPopupOpen, setIsPopupOpen] = useState(false);
-  const { data: session } = useSession();
+  const { data: session, status: sessionStatus } = useSession();
   const [loading, setLoading] = useState<boolean>(false);
   const [toast, setToast] = useState<ToastState>({
     isOpen: false,
@@ -22,15 +23,33 @@ const ChatPage: React.FC = () => {
   });
   const [isMobile, setIsMobile] = useState(false);
   const [showChat, setShowChat] = useState(false);
+  const [allDataLoading, setAllDataLoading] = useState(true); 
 
   const updateMedia = () => {
     setIsMobile(window.innerWidth < 768);
   };
+
+  const { data: user, isLoading: userLoading } = api.user.getUser.useQuery(
+    { id: session?.user?.id ?? "" },
+    {
+      enabled: !!session?.user?.id,
+    },
+  );
+
+  useEffect(() => {
+    if (sessionStatus === 'loading' || userLoading) {
+      setAllDataLoading(true);
+    } else if (sessionStatus === 'unauthenticated') {
+      redirect('/signin');
+    } else if (session && !user?.appID) {
+      redirect('/createID');
+    } else {
+      setAllDataLoading(false);
+    }
+  }, [session, user?.appID, sessionStatus, userLoading]);
   
   useEffect(() => {
-    // Check on mount (client-side only)
     updateMedia();
-    // Set event listener for future resizes
     window.addEventListener('resize', updateMedia);
     return () => {
       window.removeEventListener('resize', updateMedia);
@@ -86,6 +105,10 @@ const ChatPage: React.FC = () => {
   const handleBackToFriends = () => {
     setShowChat(false);
   };
+
+  if (allDataLoading) {
+    return <Loading />;
+  }
 
   return (
     <div className={`flex h-screen bg-[#2D2E30] w-full pb-[4rem] md:pb-0`}>
