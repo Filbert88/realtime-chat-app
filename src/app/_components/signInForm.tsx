@@ -3,8 +3,7 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { signIn, useSession } from "next-auth/react";
-import Toast from "./Toast";
-import { ToastState } from "./Toast";
+import { useToast } from "@/components/ui/use-toast";
 import Loading from "./Loading";
 
 interface Errors {
@@ -18,6 +17,7 @@ interface Touched {
 }
 
 const SigninForm: React.FC = () => {
+  const { toast } = useToast();
   const router = useRouter();
   const [email, setEmail] = useState<string>("");
   const [password, setPassword] = useState<string>("");
@@ -26,11 +26,6 @@ const SigninForm: React.FC = () => {
   const [touched, setTouched] = useState<Touched>({
     email: false,
     password: false,
-  });
-  const [toast, setToast] = useState<ToastState>({
-    isOpen: false,
-    message: "",
-    type: "error",
   });
   const [loading, setLoading] = useState<boolean>(false);
 
@@ -86,10 +81,9 @@ const SigninForm: React.FC = () => {
     if (emailError || passwordError) {
       setErrors({ email: emailError, password: passwordError });
       setTouched({ email: true, password: true });
-      setToast({
-        isOpen: true,
-        message: emailError || passwordError,
-        type: "error",
+      toast({
+        variant: "destructive",
+        title: emailError || passwordError,
       });
       return;
     }
@@ -104,7 +98,10 @@ const SigninForm: React.FC = () => {
 
     console.log(result);
     if (result?.error) {
-      setToast({ isOpen: true, message: result.error, type: "error" });
+      toast({
+        variant: "destructive",
+        title: result.error,
+      });
       setLoading(false);
     } else {
       router.refresh();
@@ -176,12 +173,6 @@ const SigninForm: React.FC = () => {
           </a>
         </div>
       </form>
-      <Toast
-        isOpen={toast.isOpen}
-        message={toast.message}
-        type={toast.type}
-        closeToast={() => setToast({ ...toast, isOpen: false })}
-      />
     </div>
   );
 };

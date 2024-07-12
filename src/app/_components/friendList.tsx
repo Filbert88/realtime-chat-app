@@ -1,13 +1,20 @@
 import React, { useEffect, useState } from "react";
+import Loading from "./Loading";
 import { api } from "@/trpc/react";
 import { useSession } from "next-auth/react";
-import { UserPlusIcon } from "@heroicons/react/24/outline";
+import {
+  UserPlusIcon,
+  XMarkIcon,
+  MagnifyingGlassIcon,
+} from "@heroicons/react/24/outline";
 
 interface Friend {
   id: string;
   name: string;
   email: string;
   appID: string | null;
+  image: string | null;
+  unreadCount: number;
 }
 
 interface FriendsListProps {
@@ -21,13 +28,16 @@ const FriendsList: React.FC<FriendsListProps> = ({
 }) => {
   const { data: session } = useSession();
   const [friends, setFriends] = useState<Friend[]>([]);
+  const [filteredFriends, setFilteredFriends] = useState<Friend[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
 
   const {
     data,
     error: queryError,
     isLoading,
+    refetch,
   } = api.chat.getFriendsAndConversations.useQuery(
     { userId: session?.user?.id ?? "" },
     {
@@ -36,30 +46,67 @@ const FriendsList: React.FC<FriendsListProps> = ({
   );
 
   useEffect(() => {
+    const intervalId = setInterval(() => {
+      refetch();
+    }, 5000);
+
+    return () => clearInterval(intervalId);
+  }, [refetch]);
+
+  useEffect(() => {
     if (data) {
+      console.log("data friends", data);
       setFriends(data);
+      setFilteredFriends(data);
       setLoading(false);
+      void refetch();
     } else if (queryError) {
       setError(queryError.message);
       setLoading(false);
     }
   }, [data, queryError]);
 
+  useEffect(() => {
+    const results = friends.filter((friend) =>
+      friend.name.toLowerCase().includes(searchTerm.toLowerCase()),
+    );
+    setFilteredFriends(results);
+  }, [searchTerm, friends]);
+
   const getAvatarInitials = (name: string) => {
     return name ? name.charAt(0).toUpperCase() : "";
   };
 
-  if (isLoading || loading) return <div>Loading...</div>;
+  const handleClearSearch = () => {
+    setSearchTerm("");
+  };
+
+  if (isLoading || loading) return <Loading />;
   if (error) return <div>Error: {error}</div>;
 
   return (
     <div className="h-full">
-      <h2 className="p-4 text-lg font-semibold text-white">
-        Friends & Conversations
-      </h2>
-      {friends.length === 0 ? (
+      <div className="chatMessages px-4 pb-2 pt-4">
+        <div className="flex items-center rounded-lg bg-[#4A4A4A] p-2">
+          <MagnifyingGlassIcon className="ml-3 mr-2 h-5 w-5 text-white" />
+          <input
+            type="text"
+            placeholder="Search for chats"
+            className="w-full bg-[#4A4A4A] p-2 text-white focus:outline-none"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+          {searchTerm && (
+            <XMarkIcon
+              className="mr-3 h-5 w-5 cursor-pointer text-white"
+              onClick={handleClearSearch}
+            />
+          )}
+        </div>
+      </div>
+      {filteredFriends.length === 0 ? (
         <div className="flex h-full flex-col items-center justify-center text-white">
-          <p>No friends yet</p>
+          <p>No friends found</p>
           <button
             className="mt-4 flex items-center rounded-lg bg-blue-500 p-2 text-white"
             onClick={onAddFriendClick}
@@ -69,16 +116,29 @@ const FriendsList: React.FC<FriendsListProps> = ({
         </div>
       ) : (
         <ul className="list-none p-0">
-          {friends.map((friend) => (
+          {filteredFriends.map((friend) => (
             <li
               key={friend.id}
-              className="flex cursor-pointer items-center p-4 text-white hover:bg-gray-400"
+              className="flex cursor-pointer items-center p-4 text-white hover:bg-[#343536]"
               onClick={() => onSelectFriend(friend.id)}
             >
-              <div className="mr-4 flex h-12 w-12 items-center justify-center rounded-full bg-gray-500 text-white">
-                {getAvatarInitials(friend.name)}
-              </div>
-              {friend.name}
+              {friend.image ? (
+                <img
+                  src={friend.image}
+                  alt={`${friend.name}'s avatar`}
+                  className="mr-4 h-12 w-12 rounded-full"
+                />
+              ) : (
+                <div className="mr-4 flex h-12 w-12 items-center justify-center rounded-full bg-gray-500 text-white">
+                  {getAvatarInitials(friend.name)}
+                </div>
+              )}
+              <div className="flex-grow">{friend.name}</div>
+              {friend.unreadCount > 0 && (
+                <span className="bg-red-500 ml-4 rounded-full px-3 py-1 text-xs text-white">
+                  {friend.unreadCount} new
+                </span>
+              )}
             </li>
           ))}
         </ul>

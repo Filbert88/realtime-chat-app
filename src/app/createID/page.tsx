@@ -1,24 +1,18 @@
 "use client";
-import Link from "next/link";
 import { useState, useEffect } from "react";
 import { api } from "@/trpc/react";
 import Loading from "../_components/Loading";
-import Toast from "../_components/Toast";
-import { ToastState } from "../_components/Toast";
+import { useToast } from "@/components/ui/use-toast";
 import { useSession } from "next-auth/react";
-import { signOut } from "next-auth/react";
 import { IoSend } from "react-icons/io5";
 import { FaRocketchat } from "react-icons/fa6";
 import { redirect } from "next/navigation";
 
 const CreateIDPage = () => {
+  const { toast } = useToast();
   const [uniqueID, setUniqueID] = useState("");
   const [loading, setLoading] = useState<boolean>(false);
-  const [toast, setToast] = useState<ToastState>({
-    isOpen: false,
-    message: "",
-    type: "error",
-  });
+
   const { data: session } = useSession();
 
   console.log("ini session", session);
@@ -42,16 +36,17 @@ const CreateIDPage = () => {
       setLoading(true);
     },
     onSuccess: () => {
-      setToast({
-        isOpen: true,
-        message: "ID added successfully!",
-        type: "success",
+      toast({
+        title: "ID added successfully!",
       });
       setLoading(false);
     },
     onError: (error) => {
       setLoading(false);
-      setToast({ isOpen: true, message: error.message, type: "error" });
+      toast({
+        variant: "destructive",
+        title: error.message,
+      });
     },
   });
 
@@ -60,10 +55,9 @@ const CreateIDPage = () => {
     console.log(uniqueID);
 
     if (!uniqueID.trim()) {
-      setToast({
-        isOpen: true,
-        message: "Please enter a valid unique ID.",
-        type: "error",
+      toast({
+        variant: "destructive",
+        title: "Please enter a valid unique ID",
       });
       return;
     }
@@ -76,8 +70,15 @@ const CreateIDPage = () => {
     }
   };
 
-  const handleSignOut = () => {
-    void signOut();
+  const handleChatClick = () => {
+    if (!user?.appID) {
+      toast({
+        variant: "destructive",
+        title: "Please submit your unique ID before continuing",
+      });
+    } else {
+      redirect("/chat");
+    }
   };
 
   if (loading) {
@@ -111,23 +112,16 @@ const CreateIDPage = () => {
         </div>
         <div className="flex flex-col items-center gap-2">
           <div className="flex flex-col items-center justify-center gap-4">
-            <Link
-              href="/chat"
+            <button
+              onClick={handleChatClick}
               className="flex items-center justify-center rounded-full bg-white/10 px-10 py-3 font-semibold no-underline transition hover:bg-white/20"
             >
               Let&apos;s Chat
               <FaRocketchat className="ml-3" />
-            </Link>
+            </button>
           </div>
         </div>
-        <button onClick={handleSignOut}>Sign Out</button>
       </div>
-      <Toast
-        isOpen={toast.isOpen}
-        message={toast.message}
-        type={toast.type}
-        closeToast={() => setToast({ ...toast, isOpen: false })}
-      />
     </main>
   );
 };

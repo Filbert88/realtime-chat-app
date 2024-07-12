@@ -8,22 +8,18 @@ import { useSession } from 'next-auth/react';
 import { api } from '@/trpc/react';
 import Loading from '../_components/Loading';
 import { redirect } from 'next/navigation';
-import Toast from '../_components/Toast';
-import { ToastState } from '../_components/Toast';
+import { useToast } from '@/components/ui/use-toast';
 
 const ChatPage: React.FC = () => {
+  const { toast } = useToast();
   const [selectedFriend, setSelectedFriend] = useState<string | null>(null);
   const [isPopupOpen, setIsPopupOpen] = useState(false);
   const { data: session, status: sessionStatus } = useSession();
   const [loading, setLoading] = useState<boolean>(false);
-  const [toast, setToast] = useState<ToastState>({
-    isOpen: false,
-    message: '',
-    type: 'error',
-  });
   const [isMobile, setIsMobile] = useState(false);
   const [showChat, setShowChat] = useState(false);
   const [allDataLoading, setAllDataLoading] = useState(true); 
+  const [activeIcon, setActiveIcon] = useState<string>('messages');
 
   const updateMedia = () => {
     setIsMobile(window.innerWidth < 768);
@@ -63,22 +59,29 @@ const ChatPage: React.FC = () => {
     },
   );
 
+  const onAddFriendClick = useCallback(() => {
+    console.log("Refetching data...");
+    setIsPopupOpen(true); 
+    refetch();
+  }, [setIsPopupOpen, refetch]);
+
   const addFriendMutation = api.friend.addFriend.useMutation({
     onMutate: () => {
       setLoading(true);
     },
     onSuccess: () => {
-      setToast({
-        isOpen: true,
-        message: 'Successfully added friend',
-        type: 'success',
+      toast({
+        title: "Successfully added friend",
       });
       setLoading(false);
       void refetch();
     },
     onError: () => {
       setLoading(false);
-      setToast({ isOpen: true, message: 'An error occurred', type: 'error' });
+      toast({
+        variant: "destructive",
+        title: "An error occurred",
+      });
     },
   });
 
@@ -86,12 +89,20 @@ const ChatPage: React.FC = () => {
     async (friendAppID: string) => {
       const userId = session?.user?.id;
       if (!userId) {
+        toast({
+          variant: "destructive",
+          title: "User not authenticated",
+        });
         console.error('User not authenticated');
         return;
       }
       try {
         addFriendMutation.mutate({ userId, friendAppID });
       } catch (error) {
+        toast({
+          variant: "destructive",
+          title: "Error adding friend",
+        });
         console.error('Error adding friend:', error);
       }
     },
@@ -106,17 +117,22 @@ const ChatPage: React.FC = () => {
     setShowChat(false);
   };
 
+  const handleCancelPopup = () => {
+    setActiveIcon('messages'); 
+    setIsPopupOpen(false);
+  };
+
   if (allDataLoading) {
     return <Loading />;
   }
 
   return (
     <div className={`flex h-screen bg-[#2D2E30] w-full pb-[4rem] md:pb-0`}>
-      <Sidebar refetch={refetch} />
-      <div className={`w-full flex-1 ${showChat && isMobile ? 'hidden' : 'md:w-1/3'} overflow-y-auto border-r border-gray-600`}>
+      <Sidebar refetch={refetch}  activeIcon={activeIcon} setActiveIcon={setActiveIcon} />
+      <div className={`w-full flex-1 ${showChat && isMobile ? 'hidden' : 'md:w-1/3'} overflow-y-auto chatMessages border-r border-gray-600`}>
         <FriendsList
           onSelectFriend={handleSelectFriend}
-          onAddFriendClick={() => setIsPopupOpen(true)}
+          onAddFriendClick={onAddFriendClick}
         />
       </div>
       <div className={`${showChat || !isMobile ? 'block w-full' : 'hidden'} md:block md:w-2/3`}>
@@ -128,12 +144,7 @@ const ChatPage: React.FC = () => {
         isOpen={isPopupOpen}
         onClose={() => setIsPopupOpen(false)}
         onSubmit={handleAddFriend}
-      />
-      <Toast
-        isOpen={toast.isOpen}
-        message={toast.message}
-        type={toast.type}
-        closeToast={() => setToast({ ...toast, isOpen: false })}
+        onCancel={handleCancelPopup}
       />
     </div>
   );

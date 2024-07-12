@@ -17,7 +17,7 @@ export default function Page() {
   };
   const userName = session?.user?.name;
   return (
-    <div className="relative flex min-h-screen flex-col items-center justify-center bg-gray-800 text-white">
+    <div className="relative flex min-h-screen flex-col items-center justify-center text-white">
       <div className="mb-4 text-5xl font-bold">Hi There</div>
       {session ? (
         <div className="mb-6 text-xl">

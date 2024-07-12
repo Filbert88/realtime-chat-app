@@ -35,6 +35,26 @@ const Chat: React.FC<ChatProps> = ({ friendId, onBack }) => {
   const [friendName, setFriendName] = useState<string>("");
   const messagesContainerRef = useRef<HTMLDivElement>(null);
 
+  const { mutate: updateMessagesAsRead } = api.chat.updateMessagesAsRead.useMutation();
+  useEffect(() => {
+    if (friendId && session?.user?.id) {
+      console.log("user id:" ,session.user.id);
+      console.log("friendid:" ,friendId);
+      updateMessagesAsRead({
+        userId: session.user.id,
+        friendId: friendId,
+      }, {
+        onSuccess: () => {
+          console.log("Messages marked as read.");
+          refetch();  
+        },
+        onError: (error) => {
+          console.error("Failed to mark messages as read:", error);
+        }
+      });
+    }
+  }, [friendId, session?.user?.id, updateMessagesAsRead]);
+
   const {
     data: messagesData,
     isSuccess: isMessagesSuccess,

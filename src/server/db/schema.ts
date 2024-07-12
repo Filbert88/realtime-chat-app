@@ -8,6 +8,7 @@ import {
   text,
   timestamp,
   varchar,
+  boolean,
 } from "drizzle-orm/pg-core";
 
 /**
@@ -57,6 +58,7 @@ export const accounts = createTable("account", {
 export const messages = createTable("msg", {
   id: serial("id").primaryKey(),
   content: text("content").notNull(),
+  read: boolean("read").default(false),
   senderId: uuid("sender_id")
     .notNull()
     .references(() => users.id),

@@ -2,23 +2,18 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import Toast from "./Toast";
-import { ToastState } from "./Toast";
 import Loading from "./Loading";
 import { api } from "@/trpc/react";
+import { useToast } from "@/components/ui/use-toast";
 
 const SignUpForm: React.FC = () => {
+  const { toast } = useToast();
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [phone, setPhone] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [toast, setToast] = useState<ToastState>({
-    isOpen: false,
-    message: "",
-    type: "error",
-  });
   const [loading, setLoading] = useState<boolean>(false);
 
   const validateName = (name: string): string => {
@@ -57,17 +52,18 @@ const SignUpForm: React.FC = () => {
       setLoading(true);
     },
     onSuccess:() =>{
-      setToast({
-        isOpen: true,
-        message: "Signup successful!",
-        type: "success",
+      toast({
+        title: "Signup successful!",
       });
       setLoading(false);
       router.push("/signin");
     },
     onError: () => {
       setLoading(false);
-      setToast({ isOpen: true, message: "An error occurred", type: "error" });
+      toast({
+        variant: "destructive",
+        title: "An error occurred",
+      });
     },
   })
 
@@ -80,10 +76,9 @@ const SignUpForm: React.FC = () => {
     const passwordError = validatePassword(password);
   
     if (nameError || emailError || phoneError || passwordError) {
-      setToast({
-        isOpen: true,
-        message: nameError || emailError || passwordError || phoneError,
-        type: "error",
+      toast({
+        variant: "destructive",
+        title: nameError || emailError || passwordError || phoneError,
       });
       return;
     }
@@ -166,12 +161,6 @@ const SignUpForm: React.FC = () => {
           </div>
         </div>
       </form>
-      <Toast
-        isOpen={toast.isOpen}
-        message={toast.message}
-        type={toast.type}
-        closeToast={() => setToast({ ...toast, isOpen: false })}
-      />
     </div>
   );
 };

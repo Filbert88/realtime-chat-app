@@ -3,13 +3,15 @@ import { publicProcedure, createTRPCRouter } from "../trpc";
 import { db } from "@/server/db";
 import { messages, users, conversations, friends } from "@/server/db/schema";
 import { eq, and, or } from "drizzle-orm/expressions";
-import { asc, desc } from 'drizzle-orm';
+import { asc, desc, count, sql } from "drizzle-orm";
 
-interface FriendOrSenderDetails {
+interface FriendsDetail {
   id: string;
   name: string;
   email: string;
-  appID: string;
+  appID: string | null;
+  image: string | null;
+  unreadCount: number;
 }
 
 export const chatRouter = createTRPCRouter({
@@ -114,54 +116,67 @@ export const chatRouter = createTRPCRouter({
     .query(async ({ input }) => {
       const { userId } = input;
 
-      const friendsList: FriendOrSenderDetails[] = (
-        await db
-          .select({
-            id: users.id,
-            name: users.name,
-            email: users.email,
-            appID: users.appID,
-          })
-          .from(friends)
-          .where(eq(friends.userId, userId))
-          .innerJoin(users, eq(friends.friendAppID, users.appID))
-      ).map((friend) => ({
-        ...friend,
-        appID: friend.appID ?? "",
-      }));
+      const friendsList = await db
+        .select({
+          id: users.id,
+          name: users.name,
+          email: users.email,
+          appID: users.appID,
+          image: users.image,
+        })
+        .from(users)
+        .innerJoin(friends, eq(friends.friendAppID, users.appID))
+        .where(eq(friends.userId, userId))
+        .execute();
 
-      const receivedMessages: FriendOrSenderDetails[] = (
-        await db
-          .select({
-            id: users.id,
-            name: users.name,
-            email: users.email,
-            appID: users.appID,
-          })
-          .from(messages)
-          .where(eq(messages.receiverId, userId))
-          .innerJoin(users, eq(messages.senderId, users.id))
-      ).map((msg) => ({
-        ...msg,
-        appID: msg.appID ?? "",
-      }));
+      const friendIds = friendsList.map((friend) => friend.id);
 
-      const friendsSet = new Map<string, FriendOrSenderDetails>();
+      const receivedMessages = await db
+        .select({
+          id: users.id,
+          name: users.name,
+          email: users.email,
+          appID: users.appID,
+          image: users.image,
+        })
+        .from(messages)
+        .innerJoin(users, eq(messages.senderId, users.id))
+        .where(eq(messages.receiverId, userId))
+        .execute();
 
-      friendsList.forEach((friend) => {
-        friendsSet.set(friend.id, friend);
-      });
+      const filteredMessages = receivedMessages.filter(
+        (msg) => !friendIds.includes(msg.id),
+      );
 
-      receivedMessages.forEach((msg) => {
-        if (!friendsSet.has(msg.id)) {
-          friendsSet.set(msg.id, msg);
-        }
-      });
+      const combinedUsers = [...friendsList, ...filteredMessages];
+      const usersMap = new Map(combinedUsers.map((user) => [user.id, user]));
 
-      const uniqueFriendsAndSenders = Array.from(friendsSet.values());
+      const detailedFriends = await Promise.all(
+        Array.from(usersMap.values()).map(async (user) => {
+          const unreadCountResults = await db
+            .select({ count: count() })
+            .from(messages)
+            .where(
+              and(
+                eq(messages.receiverId, userId),
+                eq(messages.senderId, user.id),
+                eq(messages.read, false),
+              ),
+            )
+            .execute();
 
-      return uniqueFriendsAndSenders;
+          const unreadCount = unreadCountResults?.[0]?.count ?? 0;
+
+          return {
+            ...user,
+            unreadCount: unreadCount,
+          };
+        }),
+      );
+
+      return detailedFriends;
     }),
+
   getLastMessage: publicProcedure
     .input(
       z.object({
@@ -200,13 +215,77 @@ export const chatRouter = createTRPCRouter({
         return { message: "No messages found" };
       }
 
-    const message = lastMessage[0]!;
-    return {
-      id: message.id,
-      content: message.content,
-      senderId: message.senderId,
-      receiverId: message.receiverId,
-      createdAt: message.createdAt,
-    };
+      const message = lastMessage[0]!;
+      return {
+        id: message.id,
+        content: message.content,
+        senderId: message.senderId,
+        receiverId: message.receiverId,
+        createdAt: message.createdAt,
+      };
+    }),
+
+  updateMessagesAsRead: publicProcedure
+    .input(
+      z.object({
+        userId: z.string().uuid(),
+        friendId: z.string().uuid(),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      const { userId, friendId } = input;
+      console.log(
+        "Updating messages as read with User ID:",
+        userId,
+        " and Friend ID:",
+        friendId,
+      );
+
+      try {
+        await db
+          .update(messages)
+          .set({ read: true, updatedAt: sql`CURRENT_TIMESTAMP` })
+          .where(
+            and(
+              eq(messages.receiverId, userId),
+              eq(messages.senderId, friendId),
+              eq(messages.read, false),
+            ),
+          )
+          .execute();
+
+        const updatedMessages = await db
+          .select()
+          .from(messages)
+          .where(
+            and(
+              eq(messages.receiverId, userId),
+              eq(messages.senderId, friendId),
+              eq(messages.read, true),
+            ),
+          )
+          .execute();
+
+        if (updatedMessages.length === 0) {
+          throw new Error(
+            "Failed to mark messages as read or no messages were updated",
+          );
+        }
+
+        const sanitizedMessages = updatedMessages.map((message) => ({
+          ...message,
+          createdAt: message.createdAt
+            ? new Date(message.createdAt).toISOString()
+            : null,
+          updatedAt: message.updatedAt
+            ? new Date(message.updatedAt).toISOString()
+            : null,
+        }));
+
+        return { sanitizedMessages };
+      } catch (error) {
+        console.error("Error during update operation:", error);
+        throw new Error("Failed to update messages as read due to an error");
+      }
     }),
 });
