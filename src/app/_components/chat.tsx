@@ -29,30 +29,107 @@ type Message = {
   conversationId: string;
 };
 
+interface ContextMenuState {
+  visible: boolean;
+  x: number;
+  y: number;
+  messageId: number | null;
+}
+
+interface ContextMenuProps {
+  x: number;
+  y: number;
+  onDelete: () => void;
+  onUnsend: () => void;
+}
+
 const Chat: React.FC<ChatProps> = ({ friendId, onBack }) => {
   const { data: session } = useSession();
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [friendName, setFriendName] = useState<string>("");
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const [contextMenu, setContextMenu] = useState<ContextMenuState>({
+    visible: false,
+    x: 0,
+    y: 0,
+    messageId: null,
+  });  
 
-  const { mutate: updateMessagesAsRead } = api.chat.updateMessagesAsRead.useMutation();
+  const handleContextMenu = (event: React.MouseEvent<HTMLDivElement>, id: number)  => {
+    event.preventDefault();
+    setContextMenu({
+      visible: true,
+      x: event.clientX,
+      y: event.clientY,
+      messageId: id,
+    });
+  };
+
+  const handleClick = () => {
+    if (contextMenu.visible) {
+      setContextMenu({ ...contextMenu, visible: false });
+    }
+  };
+
+  useEffect(() => {
+    document.addEventListener("click", handleClick);
+    return () => {
+      document.removeEventListener("click", handleClick);
+    };
+  }, []);
+
+  const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, onUnsend, onDelete }) => {
+    const style: React.CSSProperties = {
+      top: y,
+      left: x,
+      position: "fixed",
+      zIndex: 1000,
+      backgroundColor: "white",
+      boxShadow: "0px 0px 5px #aaa",
+      borderRadius: "5px",
+      padding: "8px",
+    };
+
+    return (
+      <div style={style}>
+        <div
+          onClick={onDelete}
+          style={{ cursor: "pointer", padding: "4px 8px" }}
+        >
+          Delete
+        </div>
+        <div
+          onClick={onUnsend}
+          style={{ cursor: "pointer", padding: "4px 8px" }}
+        >
+          Unsend
+        </div>
+      </div>
+    );
+  };
+
+  const { mutate: updateMessagesAsRead } =
+    api.chat.updateMessagesAsRead.useMutation();
   useEffect(() => {
     if (friendId && session?.user?.id) {
-      console.log("user id:" ,session.user.id);
-      console.log("friendid:" ,friendId);
-      updateMessagesAsRead({
-        userId: session.user.id,
-        friendId: friendId,
-      }, {
-        onSuccess: () => {
-          console.log("Messages marked as read.");
-          void refetch();  
+      console.log("user id:", session.user.id);
+      console.log("friendid:", friendId);
+      updateMessagesAsRead(
+        {
+          userId: session.user.id,
+          friendId: friendId,
         },
-        onError: (error) => {
-          console.error("Failed to mark messages as read:", error);
-        }
-      });
+        {
+          onSuccess: () => {
+            console.log("Messages marked as read.");
+            void refetch();
+          },
+          onError: (error) => {
+            console.error("Failed to mark messages as read:", error);
+          },
+        },
+      );
     }
   }, [friendId, session?.user?.id, updateMessagesAsRead]);
 
@@ -167,7 +244,7 @@ const Chat: React.FC<ChatProps> = ({ friendId, onBack }) => {
           onSuccess: () => {
             setMessages((prevMessages) =>
               prevMessages.map((msg) =>
-                msg.tempId === tempId ? { ...msg, tempId: undefined } : msg
+                msg.tempId === tempId ? { ...msg, tempId: undefined } : msg,
               ),
             );
           },
@@ -196,9 +273,15 @@ const Chat: React.FC<ChatProps> = ({ friendId, onBack }) => {
 
   useEffect(() => {
     if (isMessagesSuccess && messagesData) {
-      setMessages(messagesData);
+      const processedMessages = messagesData.map(msg => {
+        if (msg.deletedByUserId === session?.user?.id) {
+          return { ...msg, content: "[user deleted]" };
+        }
+        return msg;
+      });
+      setMessages(processedMessages);
     }
-  }, [messagesData, isMessagesSuccess]);
+  }, [messagesData, isMessagesSuccess, session?.user?.id]);
 
   useEffect(() => {
     if (messagesContainerRef.current) {
@@ -206,6 +289,8 @@ const Chat: React.FC<ChatProps> = ({ friendId, onBack }) => {
         messagesContainerRef.current.scrollHeight;
     }
   }, [messages]);
+
+  
 
   const getAvatarInitials = (name: string) => {
     return name ? name.charAt(0).toUpperCase() : "";
@@ -220,6 +305,53 @@ const Chat: React.FC<ChatProps> = ({ friendId, onBack }) => {
     } else {
       target.style.height = `${target.scrollHeight}px`;
       target.style.overflowY = "hidden";
+    }
+  };
+
+  useEffect(() => {
+    socket.on('messageUnsent', (data: { messageId: number }) => {
+      setMessages(prevMessages => prevMessages.filter(msg => msg.id !== data.messageId));
+    });
+  
+    return () => {
+      socket.off('messageUnsent');
+    };
+  }, [socket]);
+  
+  
+
+  const deleteMessageMutation = api.chat.deleteMessage.useMutation();
+  const unsendMessageMutation = api.chat.unsendMessage.useMutation();
+
+  const deleteMessage = (id: number) => {
+    if (session?.user.id) {
+      deleteMessageMutation.mutate(
+        { messageId: id, userId: session?.user.id },
+        {
+          onSuccess: () => {
+            setMessages((prevMessages) =>
+              prevMessages.filter((msg) => msg.id !== id),
+            );
+          },
+        },
+      );
+    }
+  };
+
+  const unsendMessage = (id: number) => {
+    if (session?.user.id && friendData) {
+      unsendMessageMutation.mutate(
+        { messageId: id, userId: session?.user.id },
+        {
+          onSuccess: () => {
+            socket.emit('unsendMessage', { messageId: id, receiverAppID: friendData.appID });
+            setMessages((prevMessages) =>
+              prevMessages.filter((msg) => msg.id !== id),
+            );
+            void refetch();
+          },
+        },
+      );
     }
   };
 
@@ -251,9 +383,14 @@ const Chat: React.FC<ChatProps> = ({ friendId, onBack }) => {
         ref={messagesContainerRef}
         className="chatMessages flex-1 overflow-y-auto p-4"
       >
-        {messages.map((msg) => (
+        {messages.filter(msg => msg.content !== "[user deleted]").map((msg) => (
           <div
             key={msg.id}
+            onContextMenu={(e) => {
+              if (msg.id !== undefined) { 
+                handleContextMenu(e, msg.id);
+              }
+            }}
             className={`my-2 flex items-start ${
               msg.senderId === session?.user?.id
                 ? "justify-end"
@@ -304,6 +441,25 @@ const Chat: React.FC<ChatProps> = ({ friendId, onBack }) => {
           <IoSendSharp />
         </button>
       </div>
+      {contextMenu.visible && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onDelete={() => {
+            if (contextMenu.messageId !== null) {
+              deleteMessage(contextMenu.messageId);
+              setContextMenu({ ...contextMenu, visible: false });
+            }
+          }}
+          onUnsend={() => {
+            if (contextMenu.messageId !== null) {
+              unsendMessage(contextMenu.messageId);
+              setContextMenu({ ...contextMenu, visible: false });
+            }
+          }}
+          
+        />
+      )}
     </div>
   );
 };

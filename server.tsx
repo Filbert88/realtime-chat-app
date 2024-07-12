@@ -41,6 +41,21 @@ app.prepare().then(() => {
   
       console.log(`Message emitted to rooms with appID: ${data.receiverAppID}`);
     });
+
+    socket.on("deleteMessage", (data: { messageId: number; receiverAppID: string }) => {
+      console.log(`Deleting message with ID: ${data.messageId}`);
+      io.to(data.receiverAppID).emit("messageDeleted", {
+        messageId: data.messageId
+      });
+    });
+
+    socket.on('unsendMessage', (data: { messageId: number; receiverAppID: string }) => {
+      console.log(`Unsending message with ID: ${data.messageId}`);
+      io.to(data.receiverAppID).emit('messageUnsent', {
+        messageId: data.messageId
+      });
+    });
+    
   
     socket.on("disconnect", () => {
       console.log("A user disconnected");

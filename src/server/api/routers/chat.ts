@@ -288,4 +288,94 @@ export const chatRouter = createTRPCRouter({
         throw new Error("Failed to update messages as read due to an error");
       }
     }),
+
+    deleteMessage: publicProcedure
+    .input(
+      z.object({
+        userId: z.string().uuid(),
+        messageId: z.number(),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      const { userId, messageId } = input;
+      console.log("Deleting message with Message ID:", messageId, " for User ID:", userId);
+    
+      try {
+        const updateResult = await db
+          .update(messages)
+          .set({
+            deletedByUserId: userId, 
+            updatedAt: sql`CURRENT_TIMESTAMP`
+          })
+          .where(
+            and(
+              eq(messages.id, messageId),
+              or(
+                eq(messages.receiverId, userId),
+                eq(messages.senderId, userId)
+              )
+            ),
+          )
+          .execute();
+    
+        if (!updateResult) {
+          throw new Error("Failed to delete the message.");
+        }
+    
+        const updatedMessage = await db
+          .select()
+          .from(messages)
+          .where(eq(messages.id, messageId))
+          .execute();
+  
+        if (updatedMessage.length === 0) {
+          throw new Error("Failed to update the message or no messages were updated");
+        }
+
+        console.log(updatedMessage);
+  
+        const sanitizedMessage = updatedMessage.map((message) => ({
+          ...message,
+          createdAt: message.createdAt ? new Date(message.createdAt).toISOString() : null,
+          updatedAt: message.updatedAt ? new Date(message.updatedAt).toISOString() : null,
+        }));
+        
+        return { sanitizedMessage };
+      } catch (error) {
+        console.error("Error during update operation:", error);
+        throw new Error("Failed to delete message due to an error");
+      }
+    }),  
+  
+  unsendMessage: publicProcedure
+    .input(
+      z.object({
+        messageId: z.number(),
+        userId: z.string().uuid(),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      const { messageId, userId } = input;
+
+      const message = await db
+        .select()
+        .from(messages)
+        .where(eq(messages.id, messageId))
+        .then((results) => results[0]);
+
+      if (!message || message.senderId !== userId) {
+        throw new Error("Message not found or user is not the sender.");
+      }
+
+      const deleted = await db
+        .delete(messages)
+        .where(eq(messages.id, messageId))
+        .execute();
+
+      if (!deleted) {
+        throw new Error("Failed to unsend the message.");
+      }
+
+      return { message: "Message unsent successfully" };
+    }),
 });

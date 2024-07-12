@@ -59,6 +59,7 @@ export const messages = createTable("msg", {
   id: serial("id").primaryKey(),
   content: text("content").notNull(),
   read: boolean("read").default(false),
+  deletedByUserId: varchar("deleteById", { length: 255 }),
   senderId: uuid("sender_id")
     .notNull()
     .references(() => users.id),
