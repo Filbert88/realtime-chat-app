@@ -7,6 +7,8 @@ import Toast from "./_components/Toast";
 import { ToastState } from "./_components/Toast";
 import { useSession } from "next-auth/react";
 import { signOut } from "next-auth/react";
+import { IoSend } from "react-icons/io5";
+import { FaRocketchat } from "react-icons/fa6";
 
 export default function Home() {
   const [uniqueID, setUniqueID] = useState("");
@@ -40,6 +42,16 @@ export default function Home() {
   const handleAddId = async () => {
     console.log(session?.user?.id);
     console.log(uniqueID);
+
+    if (!uniqueID.trim()) {
+      setToast({
+        isOpen: true,
+        message: "Please enter a valid unique ID.",
+        type: "error",
+      });
+      return;
+    }
+
     if (session?.user?.id && uniqueID) {
       await addIdMutation.mutateAsync({
         userId: session.user.id,
@@ -69,26 +81,26 @@ export default function Home() {
           <div className="text-xl font-semibold">
             Before continue&#44; let&apos;s make your ID
           </div>
-          <input
-            placeholder="Your unique ID"
-            className="rounded-lg bg-white/20 p-3"
-            value={uniqueID}
-            onChange={(e) => setUniqueID(e.target.value)}
-          />
-          <button
-            onClick={handleAddId}
-            className="mt-4 rounded-full bg-white/10 px-10 py-3 font-semibold no-underline transition hover:bg-white/20"
-          >
-            Submit ID
-          </button>
+          <div className="flex flex-row items-center gap-4">
+            <input
+              placeholder="Your unique ID"
+              className="rounded-lg bg-white/20 p-3"
+              value={uniqueID}
+              onChange={(e) => setUniqueID(e.target.value)}
+            />
+            <button onClick={handleAddId} className="">
+              <IoSend />
+            </button>
+          </div>
         </div>
         <div className="flex flex-col items-center gap-2">
           <div className="flex flex-col items-center justify-center gap-4">
             <Link
               href="/chat"
-              className="rounded-full bg-white/10 px-10 py-3 font-semibold no-underline transition hover:bg-white/20"
+              className="flex items-center justify-center rounded-full bg-white/10 px-10 py-3 font-semibold no-underline transition hover:bg-white/20"
             >
               Let&apos;s Chat
+              <FaRocketchat className="ml-3" />
             </Link>
           </div>
         </div>

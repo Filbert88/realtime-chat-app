@@ -65,13 +65,10 @@ const Sidebar: React.FC<SidebarProps> = ({ refetch }) => {
   }
 
   return (
-    <div className="flex h-screen w-16 flex-col items-center bg-[#1F1F1F] text-white">
-      <div className="mt-4 flex flex-col items-center space-y-6">
+    <div className="fixed inset-x-0 bottom-0 z-10 flex w-full flex-row md:justify-start items-center justify-center bg-[#1F1F1F] md:relative md:h-screen md:w-16 md:flex-col text-white md:bg-[#1F1F1F]">
+      <div className="flex flex-row md:flex-col md:space-y-6 space-x-6 md:space-x-0 md:items-start md:justify-start md:pt-4">
         <SidebarIcon icon={<ChatBubbleOvalLeftIcon className="h-6 w-6" />} />
-        <SidebarIcon
-          icon={<UserPlusIcon className="h-6 w-6" />}
-          onClick={() => setIsPopupOpen(true)}
-        />
+        <SidebarIcon icon={<UserPlusIcon className="h-6 w-6" />} onClick={() => setIsPopupOpen(true)} />
         <SidebarIcon icon={<BellIcon className="h-6 w-6" />} />
         <SidebarIcon icon={<UserIcon className="h-6 w-6" />} />
       </div>
@@ -88,6 +85,7 @@ const Sidebar: React.FC<SidebarProps> = ({ refetch }) => {
       />
     </div>
   );
+  
 };
 
 interface SidebarIconProps {

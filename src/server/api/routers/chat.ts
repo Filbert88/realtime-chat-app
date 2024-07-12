@@ -3,6 +3,7 @@ import { publicProcedure, createTRPCRouter } from "../trpc";
 import { db } from "@/server/db";
 import { messages, users, conversations, friends } from "@/server/db/schema";
 import { eq, and, or } from "drizzle-orm/expressions";
+import { asc, desc } from 'drizzle-orm';
 
 interface FriendOrSenderDetails {
   id: string;
@@ -160,5 +161,52 @@ export const chatRouter = createTRPCRouter({
       const uniqueFriendsAndSenders = Array.from(friendsSet.values());
 
       return uniqueFriendsAndSenders;
+    }),
+  getLastMessage: publicProcedure
+    .input(
+      z.object({
+        userId: z.string().uuid(),
+        friendId: z.string().uuid(),
+      }),
+    )
+    .query(async ({ input }) => {
+      const { userId, friendId } = input;
+
+      const lastMessage = await db
+        .select({
+          id: messages.id,
+          content: messages.content,
+          senderId: messages.senderId,
+          receiverId: messages.receiverId,
+          createdAt: messages.createdAt,
+        })
+        .from(messages)
+        .where(
+          or(
+            and(
+              eq(messages.senderId, userId),
+              eq(messages.receiverId, friendId),
+            ),
+            and(
+              eq(messages.senderId, friendId),
+              eq(messages.receiverId, userId),
+            ),
+          ),
+        )
+        .orderBy(desc(messages.createdAt))
+        .limit(1);
+
+      if (lastMessage.length === 0) {
+        return { message: "No messages found" };
+      }
+
+    const message = lastMessage[0]!;
+    return {
+      id: message.id,
+      content: message.content,
+      senderId: message.senderId,
+      receiverId: message.receiverId,
+      createdAt: message.createdAt,
+    };
     }),
 });

@@ -1,18 +1,23 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { io } from "socket.io-client";
 import { useSession } from "next-auth/react";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow, format } from "date-fns";
 import { api } from "@/trpc/react";
+import { IoSendSharp } from "react-icons/io5";
+import { IoArrowBack } from "react-icons/io5";
 
 const socket = io(
-  process.env.NODE_ENV === "production" ? "https://detailed-ermina-filbert21-6e08fb9f.koyeb.app/" : "https://detailed-ermina-filbert21-6e08fb9f.koyeb.app/"
+  process.env.NODE_ENV === "production"
+    ? "https://detailed-ermina-filbert21-6e08fb9f.koyeb.app/"
+    : "http://localhost:3000/",
 );
 
 interface ChatProps {
   friendId: string;
+  onBack:() => void;
 }
 
-const Chat: React.FC<ChatProps> = ({ friendId }) => {
+const Chat: React.FC<ChatProps> = ({ friendId, onBack }) => {
   const { data: session } = useSession();
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState<
@@ -27,7 +32,7 @@ const Chat: React.FC<ChatProps> = ({ friendId }) => {
     }[]
   >([]);
   const [friendName, setFriendName] = useState<string>("");
-  const [userAppID, setUserAppID] = useState<string | null>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
 
   const {
     data: messagesData,
@@ -79,7 +84,6 @@ const Chat: React.FC<ChatProps> = ({ friendId }) => {
 
   useEffect(() => {
     if (userData?.appID) {
-      setUserAppID(userData.appID);
       socket.emit("joinRoom", userData.appID);
       console.log(`Joining room: ${userData.appID}`);
     }
@@ -115,14 +119,42 @@ const Chat: React.FC<ChatProps> = ({ friendId }) => {
 
   const sendMessage = () => {
     if (message.trim() && userData && friendData && session) {
+      const newMessage = {
+        id: Date.now(),
+        createdAt: new Date(),
+        updatedAt: null,
+        content: message,
+        senderId: session.user.id,
+        receiverId: friendId,
+        conversationId: "temp-id",
+      };
+
+      setMessages((prevMessages) => [...prevMessages, newMessage]);
+
       const senderAppID = userData.appID;
       const receiverAppID = friendData.appID;
 
-      sendMessageMutation.mutate({
-        senderId: session.user.id,
-        receiverId: friendId,
-        content: message,
-      });
+      sendMessageMutation.mutate(
+        {
+          senderId: session.user.id,
+          receiverId: friendId,
+          content: message,
+        },
+        {
+          onSuccess: () => {
+            setMessages((prevMessages) =>
+              prevMessages.map((msg) =>
+                msg.id === newMessage.id ? { ...msg } : msg,
+              ),
+            );
+          },
+          onError: () => {
+            setMessages((prevMessages) =>
+              prevMessages.filter((msg) => msg.id !== newMessage.id),
+            );
+          },
+        },
+      );
 
       socket.emit("sendMessage", {
         senderID: session?.user.id,
@@ -145,6 +177,29 @@ const Chat: React.FC<ChatProps> = ({ friendId }) => {
     }
   }, [messagesData, isMessagesSuccess]);
 
+  useEffect(() => {
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop =
+        messagesContainerRef.current.scrollHeight;
+    }
+  }, [messages]);
+
+  const getAvatarInitials = (name: string) => {
+    return name ? name.charAt(0).toUpperCase() : "";
+  };
+
+  const adjustHeight = (target: HTMLTextAreaElement) => {
+    target.style.height = "auto";
+    const maxHeight = 120;
+    if (target.scrollHeight > maxHeight) {
+      target.style.height = `${maxHeight}px`;
+      target.style.overflowY = "auto";
+    } else {
+      target.style.height = `${target.scrollHeight}px`;
+      target.style.overflowY = "hidden";
+    }
+  };
+
   if (isMessagesLoading) {
     return <div>Loading...</div>;
   }
@@ -161,16 +216,18 @@ const Chat: React.FC<ChatProps> = ({ friendId }) => {
       </div>
     );
 
-  const getAvatarInitials = (name: string) => {
-    return name ? name.charAt(0).toUpperCase() : "";
-  };
-
   return (
-    <div className="flex h-full flex-col">
-      <div className="bg-gray-800 p-4 text-lg font-semibold text-white">
+    <div className="flex h-full flex-col w-full">
+      <div className="bg-transparent p-4 text-lg font-semibold text-white">
+      <button onClick={onBack} className="pr-2">
+          <IoArrowBack />
+        </button>
         {friendName}
       </div>
-      <div className="flex-1 overflow-y-auto p-4">
+      <div
+        ref={messagesContainerRef}
+        className="chatMessages flex-1 overflow-y-auto p-4"
+      >
         {messages.map((msg) => (
           <div
             key={msg.id}
@@ -188,12 +245,12 @@ const Chat: React.FC<ChatProps> = ({ friendId }) => {
             <div
               className={`max-w-xs rounded-lg p-2 ${
                 msg.senderId === session?.user?.id
-                  ? "bg-blue-500 text-white"
-                  : "bg-gray-200 text-black"
+                  ? "bg-[#86D97B] text-black"
+                  : "bg-[#555555] text-white"
               }`}
             >
               <div>{msg.content}</div>
-              <div className="text-xs text-gray-600">
+              <div className={`text-xs ${msg.senderId === session?.user?.id ? "text-gray-600" : "text-gray-200"}`}>
                 {formatDistanceToNow(new Date(msg.createdAt), {
                   addSuffix: true,
                 })}
@@ -202,18 +259,24 @@ const Chat: React.FC<ChatProps> = ({ friendId }) => {
           </div>
         ))}
       </div>
-      <div className="flex items-center bg-gray-700 p-4">
-        <input
-          type="text"
-          className="flex-1 rounded-l border border-gray-300 p-2"
+      <div className="flex items-center border-t border-gray-600 p-4">
+        <textarea
+          className="flex-1 resize-none bg-transparent p-2 text-white focus:outline-none chatMessages"
+          placeholder="Enter a message"
           value={message}
           onChange={(e) => setMessage(e.target.value)}
+          onInput={(e) => adjustHeight(e.target as HTMLTextAreaElement)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              sendMessage();
+            }
+          }}
+          style={{ minHeight: "10px" }}
+          rows={1}
         />
-        <button
-          className="rounded-r bg-blue-500 p-2 text-white"
-          onClick={sendMessage}
-        >
-          Send
+        <button className="pl-2 text-white" onClick={sendMessage}>
+          <IoSendSharp />
         </button>
       </div>
     </div>
