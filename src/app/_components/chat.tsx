@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { io } from "socket.io-client";
 import { useSession } from "next-auth/react";
-import { formatDistanceToNow, format } from "date-fns";
+import { format } from "date-fns";
 import { api } from "@/trpc/react";
 import { IoSendSharp } from "react-icons/io5";
 import { IoArrowBack } from "react-icons/io5";
@@ -200,8 +200,8 @@ const Chat: React.FC<ChatProps> = ({ friendId, onBack }) => {
     },
   );
   useEffect(() => {
-    if (conversationData && conversationData.conversationId) {
-      setConversationId(conversationData.conversationId);
+    if (conversationData) {
+      setConversationId(conversationData?.conversationId);
     }
   }, [conversationData]);
 
