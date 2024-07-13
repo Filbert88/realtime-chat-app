@@ -441,25 +441,32 @@ const Chat: React.FC<ChatProps> = ({ friendId, onBack }) => {
                   : "justify-start"
               }`}
             >
-              {msg.senderId !== session?.user?.id && (
-                <div className="mr-2 flex h-8 w-8 items-center justify-center rounded-full bg-gray-500 text-white">
-                  {getAvatarInitials(friendName)}
-                </div>
-              )}
-              <div
-                className={`max-w-xs rounded-lg p-2 ${
-                  msg.senderId === session?.user?.id
-                    ? "bg-[#86D97B] text-black"
-                    : "bg-[#555555] text-white"
-                }`}
-              >
-                <div>{msg.content}</div>
-                <div
-                  className={`text-xs ${msg.senderId === session?.user?.id ? "text-gray-600" : "text-gray-200"}`}
-                >
-                  {format(new Date(msg.createdAt), "HH:mm")}
-                </div>
-              </div>
+              <>
+                {msg.senderId !== session?.user?.id && (
+                  <div className="mr-2 flex h-8 w-8 items-center justify-center rounded-full bg-gray-500 text-white">
+                    {getAvatarInitials(friendName)}
+                  </div>
+                )}
+                {msg.senderId !== session?.user?.id ? (
+                  <div className="flex flex-row gap-2">
+                    <div className="max-w-xs rounded-lg bg-[#555555] p-2 text-white">
+                      <div>{msg.content}</div>
+                    </div>
+                    <div className="mt-1 self-end text-xs text-gray-200">
+                      {format(new Date(msg.createdAt), "hh:mm a")}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-row items-end gap-2">
+                    <div className="mb-1 self-end text-xs text-gray-200">
+                      {format(new Date(msg.createdAt), "hh:mm a")}
+                    </div>
+                    <div className="max-w-xs rounded-lg bg-[#86D97B] p-2 text-black">
+                      <div>{msg.content}</div>
+                    </div>
+                  </div>
+                )}
+              </>
             </div>
           ))}
       </div>
