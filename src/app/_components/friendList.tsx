@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { io } from "socket.io-client";
 import Loading from "./Loading";
 import { api } from "@/trpc/react";
 import { useSession } from "next-auth/react";
@@ -59,7 +60,7 @@ const FriendsList: React.FC<FriendsListProps> = ({
       setFriends(data);
       setFilteredFriends(data);
       setLoading(false);
-      void refetch();
+      // void refetch();
     } else if (queryError) {
       setError(queryError.message);
       setLoading(false);

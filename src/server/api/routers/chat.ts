@@ -71,14 +71,25 @@ export const chatRouter = createTRPCRouter({
         throw new Error("Failed to create a new conversation");
       }
 
-      await db.insert(messages).values({
-        senderId,
-        receiverId,
-        content,
-        conversationId: conversation.id,
-      });
+      const message = await db
+        .insert(messages)
+        .values({
+          senderId,
+          receiverId,
+          content,
+          conversationId: conversation.id,
+        })
+        .returning({ insertedId: messages.id });
 
-      return { message: "Message sent successfully" };
+      const result = message[0];
+
+      if (!result) {
+        throw new Error("Failed to send the message");
+      }
+      return {
+        id: result.insertedId,
+        message: "Message sent successfully",
+      };
     }),
 
   getMessages: publicProcedure
@@ -289,7 +300,7 @@ export const chatRouter = createTRPCRouter({
       }
     }),
 
-    deleteMessage: publicProcedure
+  deleteMessage: publicProcedure
     .input(
       z.object({
         userId: z.string().uuid(),
@@ -298,55 +309,66 @@ export const chatRouter = createTRPCRouter({
     )
     .mutation(async ({ input }) => {
       const { userId, messageId } = input;
-      console.log("Deleting message with Message ID:", messageId, " for User ID:", userId);
-    
+      console.log(
+        "Deleting message with Message ID:",
+        messageId,
+        " for User ID:",
+        userId,
+      );
+
       try {
         const updateResult = await db
           .update(messages)
           .set({
-            deletedByUserId: userId, 
-            updatedAt: sql`CURRENT_TIMESTAMP`
+            deletedByUserId: userId,
+            updatedAt: sql`CURRENT_TIMESTAMP`,
           })
           .where(
             and(
               eq(messages.id, messageId),
               or(
                 eq(messages.receiverId, userId),
-                eq(messages.senderId, userId)
-              )
+                eq(messages.senderId, userId),
+              ),
             ),
           )
           .execute();
-    
+
         if (!updateResult) {
           throw new Error("Failed to delete the message.");
         }
-    
+
         const updatedMessage = await db
           .select()
           .from(messages)
           .where(eq(messages.id, messageId))
           .execute();
-  
+
         if (updatedMessage.length === 0) {
-          throw new Error("Failed to update the message or no messages were updated");
+          throw new Error(
+            "Failed to update the message or no messages were updated",
+          );
         }
 
         console.log(updatedMessage);
-  
+
         const sanitizedMessage = updatedMessage.map((message) => ({
           ...message,
-          createdAt: message.createdAt ? new Date(message.createdAt).toISOString() : null,
-          updatedAt: message.updatedAt ? new Date(message.updatedAt).toISOString() : null,
+          createdAt: message.createdAt
+            ? new Date(message.createdAt).toISOString()
+            : null,
+          updatedAt: message.updatedAt
+            ? new Date(message.updatedAt).toISOString()
+            : null,
         }));
-        
+
         return { sanitizedMessage };
       } catch (error) {
         console.error("Error during update operation:", error);
         throw new Error("Failed to delete message due to an error");
       }
-    }),  
-  
+    }),
+
   unsendMessage: publicProcedure
     .input(
       z.object({
@@ -378,4 +400,38 @@ export const chatRouter = createTRPCRouter({
 
       return { message: "Message unsent successfully" };
     }),
+
+    getUnreadCounts: publicProcedure
+    .input(
+      z.object({
+        userId: z.string().uuid(),
+        friendId: z.string().uuid(),
+      }),
+    )
+    .query(async ({ input }) => {
+      const { userId, friendId } = input;
+
+      const unreadCounts = await db
+        .select({
+          senderId: messages.senderId,
+          count: count(),
+        })
+        .from(messages)
+        .where(
+          and(
+            eq(messages.receiverId, userId),
+            eq(messages.read, false),
+            eq(messages.senderId, friendId)
+          )
+        )
+        .groupBy(messages.senderId)
+        .execute();
+
+      // Find the count for the specific friendId
+      const specificCount = unreadCounts.find(u => u.senderId === friendId);
+
+      // Return the count as a key-value pair
+      return { [friendId]: specificCount ? specificCount.count : 0 };
+    }),
+
 });

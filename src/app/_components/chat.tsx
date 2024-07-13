@@ -49,14 +49,18 @@ const Chat: React.FC<ChatProps> = ({ friendId, onBack }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [friendName, setFriendName] = useState<string>("");
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const [conversationId, setConversationId] = useState<string>("");
   const [contextMenu, setContextMenu] = useState<ContextMenuState>({
     visible: false,
     x: 0,
     y: 0,
     messageId: null,
-  });  
+  });
 
-  const handleContextMenu = (event: React.MouseEvent<HTMLDivElement>, id: number)  => {
+  const handleContextMenu = (
+    event: React.MouseEvent<HTMLDivElement>,
+    id: number,
+  ) => {
     event.preventDefault();
     setContextMenu({
       visible: true,
@@ -79,7 +83,12 @@ const Chat: React.FC<ChatProps> = ({ friendId, onBack }) => {
     };
   }, []);
 
-  const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, onUnsend, onDelete }) => {
+  const ContextMenu: React.FC<ContextMenuProps> = ({
+    x,
+    y,
+    onUnsend,
+    onDelete,
+  }) => {
     const style: React.CSSProperties = {
       top: y,
       left: x,
@@ -181,6 +190,21 @@ const Chat: React.FC<ChatProps> = ({ friendId, onBack }) => {
     }
   }, [userData?.appID]);
 
+  const { data: conversationData } = api.user.getConversationID.useQuery(
+    {
+      userId: session?.user?.id ?? "",
+      friendId: friendId,
+    },
+    {
+      enabled: !!session?.user?.id && !!friendId,
+    },
+  );
+  useEffect(() => {
+    if (conversationData && conversationData.conversationId) {
+      setConversationId(conversationData.conversationId);
+    }
+  }, [conversationData]);
+
   useEffect(() => {
     if (userData?.appID) {
       socket.emit("joinRoom", userData.appID);
@@ -194,18 +218,20 @@ const Chat: React.FC<ChatProps> = ({ friendId, onBack }) => {
         senderID: string;
         receiverID: string;
         timestamp: Date;
+        conversationId: string;
+        messageId: number;
       }) => {
         console.log(`Received message: ${data.message} from ${data.senderID}`);
         setMessages((prevMessages) => [
           ...prevMessages,
           {
-            id: prevMessages.length + 1,
+            id: data.messageId,
             createdAt: new Date(data.timestamp),
             updatedAt: null,
             content: data.message,
             senderId: data.senderID,
             receiverId: data.receiverID,
-            conversationId: "temp-id",
+            conversationId: data.conversationId,
           },
         ]);
       },
@@ -226,7 +252,7 @@ const Chat: React.FC<ChatProps> = ({ friendId, onBack }) => {
         content: message,
         senderId: session.user.id,
         receiverId: friendId,
-        conversationId: "temp-id",
+        conversationId,
       };
 
       setMessages((prevMessages) => [...prevMessages, newMessage]);
@@ -241,12 +267,22 @@ const Chat: React.FC<ChatProps> = ({ friendId, onBack }) => {
           content: message,
         },
         {
-          onSuccess: () => {
+          onSuccess: (data) => {
             setMessages((prevMessages) =>
               prevMessages.map((msg) =>
-                msg.tempId === tempId ? { ...msg, tempId: undefined } : msg,
+                msg.tempId === tempId ? { ...msg, id: data.id } : msg,
               ),
             );
+
+            socket.emit("sendMessage", {
+              senderID: session?.user.id,
+              receiverID: friendId,
+              senderAppID: senderAppID,
+              receiverAppID: receiverAppID,
+              message: message,
+              conversationId,
+              messageId: data.id,
+            });
           },
           onError: () => {
             setMessages((prevMessages) =>
@@ -255,14 +291,6 @@ const Chat: React.FC<ChatProps> = ({ friendId, onBack }) => {
           },
         },
       );
-
-      socket.emit("sendMessage", {
-        senderID: session?.user.id,
-        receiverID: friendId,
-        senderAppID: senderAppID,
-        receiverAppID: receiverAppID,
-        message: message,
-      });
 
       console.log(
         `Message sent: ${message} from ${session?.user.id} to ${friendId}`,
@@ -273,7 +301,7 @@ const Chat: React.FC<ChatProps> = ({ friendId, onBack }) => {
 
   useEffect(() => {
     if (isMessagesSuccess && messagesData) {
-      const processedMessages = messagesData.map(msg => {
+      const processedMessages = messagesData.map((msg) => {
         if (msg.deletedByUserId === session?.user?.id) {
           return { ...msg, content: "[user deleted]" };
         }
@@ -289,8 +317,6 @@ const Chat: React.FC<ChatProps> = ({ friendId, onBack }) => {
         messagesContainerRef.current.scrollHeight;
     }
   }, [messages]);
-
-  
 
   const getAvatarInitials = (name: string) => {
     return name ? name.charAt(0).toUpperCase() : "";
@@ -309,16 +335,26 @@ const Chat: React.FC<ChatProps> = ({ friendId, onBack }) => {
   };
 
   useEffect(() => {
-    socket.on('messageUnsent', (data: { messageId: number }) => {
-      setMessages(prevMessages => prevMessages.filter(msg => msg.id !== data.messageId));
-    });
-  
+    socket.on(
+      "messageUnsent",
+      (data: { messageId: number; conversationId: string }) => {
+        console.log(
+          `Processing unsent message at ${new Date().toISOString()} for ID: ${data.messageId} in conversation ${data.conversationId}`,
+        );
+        setMessages((prevMessages) => {
+          const updatedMessages = prevMessages.filter((msg) => {
+            return msg.id !== data.messageId;
+          });
+          console.log("Updated Messages:", updatedMessages);
+          return updatedMessages;
+        });
+      },
+    );
+
     return () => {
-      socket.off('messageUnsent');
+      socket.off("messageUnsent");
     };
   }, [socket]);
-  
-  
 
   const deleteMessageMutation = api.chat.deleteMessage.useMutation();
   const unsendMessageMutation = api.chat.unsendMessage.useMutation();
@@ -344,7 +380,6 @@ const Chat: React.FC<ChatProps> = ({ friendId, onBack }) => {
         { messageId: id, userId: session?.user.id },
         {
           onSuccess: () => {
-            socket.emit('unsendMessage', { messageId: id, receiverAppID: friendData.appID });
             setMessages((prevMessages) =>
               prevMessages.filter((msg) => msg.id !== id),
             );
@@ -352,6 +387,13 @@ const Chat: React.FC<ChatProps> = ({ friendId, onBack }) => {
           },
         },
       );
+      console.log("message id ", id);
+      socket.emit("unsendMessage", {
+        messageId: id,
+        senderAppID: userData?.appID,
+        receiverAppID: friendData.appID,
+        conversationId,
+      });
     }
   };
 
@@ -383,43 +425,43 @@ const Chat: React.FC<ChatProps> = ({ friendId, onBack }) => {
         ref={messagesContainerRef}
         className="chatMessages flex-1 overflow-y-auto p-4"
       >
-        {messages.filter(msg => msg.content !== "[user deleted]").map((msg) => (
-          <div
-            key={msg.id}
-            onContextMenu={(e) => {
-              if (msg.id !== undefined) { 
-                handleContextMenu(e, msg.id);
-              }
-            }}
-            className={`my-2 flex items-start ${
-              msg.senderId === session?.user?.id
-                ? "justify-end"
-                : "justify-start"
-            }`}
-          >
-            {msg.senderId !== session?.user?.id && (
-              <div className="mr-2 flex h-8 w-8 items-center justify-center rounded-full bg-gray-500 text-white">
-                {getAvatarInitials(friendName)}
-              </div>
-            )}
+        {messages
+          .filter((msg) => msg.content !== "[user deleted]")
+          .map((msg) => (
             <div
-              className={`max-w-xs rounded-lg p-2 ${
+              key={msg.id}
+              onContextMenu={(e) => {
+                if (msg.id !== undefined) {
+                  handleContextMenu(e, msg.id);
+                }
+              }}
+              className={`my-2 flex items-start ${
                 msg.senderId === session?.user?.id
-                  ? "bg-[#86D97B] text-black"
-                  : "bg-[#555555] text-white"
+                  ? "justify-end"
+                  : "justify-start"
               }`}
             >
-              <div>{msg.content}</div>
+              {msg.senderId !== session?.user?.id && (
+                <div className="mr-2 flex h-8 w-8 items-center justify-center rounded-full bg-gray-500 text-white">
+                  {getAvatarInitials(friendName)}
+                </div>
+              )}
               <div
-                className={`text-xs ${msg.senderId === session?.user?.id ? "text-gray-600" : "text-gray-200"}`}
+                className={`max-w-xs rounded-lg p-2 ${
+                  msg.senderId === session?.user?.id
+                    ? "bg-[#86D97B] text-black"
+                    : "bg-[#555555] text-white"
+                }`}
               >
-                {formatDistanceToNow(new Date(msg.createdAt), {
-                  addSuffix: true,
-                })}
+                <div>{msg.content}</div>
+                <div
+                  className={`text-xs ${msg.senderId === session?.user?.id ? "text-gray-600" : "text-gray-200"}`}
+                >
+                  {format(new Date(msg.createdAt), "HH:mm")}
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          ))}
       </div>
       <div className="flex items-center border-t border-gray-600 p-4">
         <textarea
@@ -457,7 +499,6 @@ const Chat: React.FC<ChatProps> = ({ friendId, onBack }) => {
               setContextMenu({ ...contextMenu, visible: false });
             }
           }}
-          
         />
       )}
     </div>
