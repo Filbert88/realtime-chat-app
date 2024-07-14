@@ -17,7 +17,7 @@ const CreateIDPage = () => {
 
   console.log("ini session", session);
 
-  const { data: user, isLoading: userLoading } = api.user.getUser.useQuery(
+  const { data: user, isLoading: userLoading, refetch } = api.user.getUser.useQuery(
     { id: session?.user?.id ?? "" },
     {
       enabled: !!session?.user?.id,
@@ -43,6 +43,7 @@ const CreateIDPage = () => {
         title: "ID added successfully!",
       });
       setLoading(false);
+      refetch();
     },
     onError: (error) => {
       setLoading(false);
