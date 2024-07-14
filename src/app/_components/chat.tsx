@@ -88,16 +88,26 @@ const Chat: React.FC<ChatProps> = ({ friendId, onBack }) => {
     event: React.MouseEvent<HTMLDivElement>,
     message: Message,
   ) => {
-    let element = event.target as HTMLElement;
-    while (element && !element.classList.contains("message-container")) {
-      if (element.classList.contains("message-content")) {
-        handleContextMenu(event, message);
-        return;
-      }
-      element = element.parentElement!;
+    event.preventDefault();
+    if (message.senderId !== session?.user?.id) {
+      return; 
     }
-    setContextMenu({ ...contextMenu, visible: false });
-  };  
+  
+    if (messagesContainerRef.current) {
+      const rect = messagesContainerRef.current.getBoundingClientRect();
+      const x = Math.min(event.clientX, rect.right - 100); 
+      const y = Math.min(event.clientY, rect.bottom - 100);
+      
+      setContextMenu({
+        visible: true,
+        x,
+        y,
+        messageId: message.id,
+      });
+    } else {
+      console.error('Message container ref is not yet available.');
+    }
+  };
 
   useEffect(() => {
     document.addEventListener("click", () => {
@@ -115,28 +125,56 @@ const Chat: React.FC<ChatProps> = ({ friendId, onBack }) => {
   }, [contextMenu.visible]);
 
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        messagesContainerRef.current &&
-        !messagesContainerRef.current.contains(event.target as Node)
-      ) {
-        setContextMenu({ ...contextMenu, visible: false });
-      }
+    const handleDocumentClick = (event: MouseEvent) => {
+      if (!contextMenu.visible) return;
+  
+      let targetElement = event.target as Node | null;  
+  
+      do {
+        if (targetElement && targetElement === document.getElementById('context-menu')) {
+          return; 
+        }
+        targetElement = targetElement ? targetElement.parentNode : null;
+      } while (targetElement);
+      
+      setContextMenu({ ...contextMenu, visible: false });
     };
-
+  
+    document.addEventListener("click", handleDocumentClick);
+  
+    return () => {
+      document.removeEventListener("click", handleDocumentClick);
+    };
+  }, [contextMenu.visible]);
+  
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!contextMenu.visible) return;
+  
+      const contextMenuNode = document.getElementById("context-menu");
+      if (contextMenuNode && contextMenuNode.contains(event.target as Node)) {
+        return;
+      }
+  
+      setContextMenu({ ...contextMenu, visible: false });
+    };
+  
     document.addEventListener("mousedown", handleClickOutside);
-
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [contextMenu]);
-
+  }, [contextMenu.visible]);
+  
   const ContextMenu: React.FC<ContextMenuProps> = ({
     x,
     y,
     onUnsend,
     onDelete,
   }) => {
+    const handleMenuClick = (event: React.MouseEvent<HTMLDivElement>, action: () => void) => {
+      event.stopPropagation(); 
+      action();
+    };
     const style: React.CSSProperties = {
       top: y,
       left: x,
@@ -149,15 +187,15 @@ const Chat: React.FC<ChatProps> = ({ friendId, onBack }) => {
     };
 
     return (
-      <div style={style}>
+      <div id="context-menu" style={style}>
         <div
-          onClick={onUnsend}
+          onClick={(e) => handleMenuClick(e, onUnsend)}
           style={{ cursor: "pointer", padding: "4px 8px" }}
         >
           Unsend
         </div>
         <div
-          onClick={onDelete}
+          onClick={(e) => handleMenuClick(e, onDelete)}
           style={{ cursor: "pointer", padding: "4px 8px" }}
         >
           Delete
@@ -428,6 +466,7 @@ const Chat: React.FC<ChatProps> = ({ friendId, onBack }) => {
 
   const unsendMessage = (id: number) => {
     if (session?.user.id && friendData) {
+      console.log(`Attempting to unsend message with ID: ${id}`);
       unsendMessageMutation.mutate(
         { messageId: id, userId: session?.user.id },
         {
@@ -476,7 +515,7 @@ const Chat: React.FC<ChatProps> = ({ friendId, onBack }) => {
       <div
         ref={messagesContainerRef}
         onDoubleClick={handleContainerDoubleClick}
-        className="chatMessages flex-1 overflow-y-auto p-4"
+        className="message-container chatMessages flex-1 overflow-y-auto p-4"
       >
         {messages
           .filter((msg) => msg.content !== "[user deleted]")
@@ -485,7 +524,7 @@ const Chat: React.FC<ChatProps> = ({ friendId, onBack }) => {
               key={msg.id}
               onContextMenu={(e) => handleContextMenu(e, msg)}
               onDoubleClick={(e) => handleMessageDoubleClick(e, msg)}
-              className={`my-2 flex items-start ${
+              className={`my-2 flex items-start message-content ${
                 msg.senderId === session?.user?.id
                   ? "justify-end"
                   : "justify-start"
