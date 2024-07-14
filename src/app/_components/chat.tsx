@@ -94,10 +94,10 @@ const Chat: React.FC<ChatProps> = ({ friendId, onBack }) => {
         handleContextMenu(event, message);
         return;
       }
-      element = element.parentElement as HTMLElement;
+      element = element.parentElement!;
     }
     setContextMenu({ ...contextMenu, visible: false });
-  };
+  };  
 
   useEffect(() => {
     document.addEventListener("click", () => {
