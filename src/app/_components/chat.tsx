@@ -152,7 +152,7 @@ const Chat: React.FC<ChatProps> = ({ friendId, onBack }) => {
       if (!contextMenu.visible) return;
   
       const contextMenuNode = document.getElementById("context-menu");
-      if (contextMenuNode && contextMenuNode.contains(event.target as Node)) {
+      if (contextMenuNode?.contains(event.target as Node)) {
         return;
       }
   
@@ -164,6 +164,7 @@ const Chat: React.FC<ChatProps> = ({ friendId, onBack }) => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [contextMenu.visible]);
+  
   
   const ContextMenu: React.FC<ContextMenuProps> = ({
     x,
