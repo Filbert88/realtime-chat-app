@@ -27,13 +27,14 @@ type Message = {
   senderId: string;
   receiverId: string;
   conversationId: string;
+  read?: boolean | null;
 };
 
 interface ContextMenuState {
   visible: boolean;
   x: number;
   y: number;
-  messageId: number | null;
+  messageId: number | null | undefined;
 }
 
 interface ContextMenuProps {
@@ -59,29 +60,76 @@ const Chat: React.FC<ChatProps> = ({ friendId, onBack }) => {
 
   const handleContextMenu = (
     event: React.MouseEvent<HTMLDivElement>,
-    id: number,
+    message: Message,
   ) => {
-    event.preventDefault();
-    setContextMenu({
-      visible: true,
-      x: event.clientX,
-      y: event.clientY,
-      messageId: id,
-    });
+    if (message.senderId === session?.user?.id) {
+      event.preventDefault();
+      const x = Math.min(event.clientX, window.innerWidth - 100);
+      const y = Math.min(event.clientY, window.innerHeight - 100);
+
+      setContextMenu({
+        visible: true,
+        x: x,
+        y: y,
+        messageId: message.id ?? null,
+      });
+    }
   };
 
-  const handleClick = () => {
-    if (contextMenu.visible) {
+  const handleContainerDoubleClick = (
+    event: React.MouseEvent<HTMLDivElement>,
+  ) => {
+    if (event.target === messagesContainerRef.current) {
       setContextMenu({ ...contextMenu, visible: false });
     }
   };
 
+  const handleMessageDoubleClick = (
+    event: React.MouseEvent<HTMLDivElement>,
+    message: Message,
+  ) => {
+    let element = event.target as HTMLElement;
+    while (element && !element.classList.contains("message-container")) {
+      if (element.classList.contains("message-content")) {
+        handleContextMenu(event, message);
+        return;
+      }
+      element = element.parentElement as HTMLElement;
+    }
+    setContextMenu({ ...contextMenu, visible: false });
+  };
+
   useEffect(() => {
-    document.addEventListener("click", handleClick);
+    document.addEventListener("click", () => {
+      if (contextMenu.visible) {
+        setContextMenu({ ...contextMenu, visible: false });
+      }
+    });
     return () => {
-      document.removeEventListener("click", handleClick);
+      document.removeEventListener("click", () => {
+        if (contextMenu.visible) {
+          setContextMenu({ ...contextMenu, visible: false });
+        }
+      });
     };
-  }, []);
+  }, [contextMenu.visible]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        messagesContainerRef.current &&
+        !messagesContainerRef.current.contains(event.target as Node)
+      ) {
+        setContextMenu({ ...contextMenu, visible: false });
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [contextMenu]);
 
   const ContextMenu: React.FC<ContextMenuProps> = ({
     x,
@@ -94,25 +142,25 @@ const Chat: React.FC<ChatProps> = ({ friendId, onBack }) => {
       left: x,
       position: "fixed",
       zIndex: 1000,
-      backgroundColor: "white",
-      boxShadow: "0px 0px 5px #aaa",
+      backgroundColor: "#3F3F3F",
       borderRadius: "5px",
       padding: "8px",
+      color: "white",
     };
 
     return (
       <div style={style}>
         <div
-          onClick={onDelete}
-          style={{ cursor: "pointer", padding: "4px 8px" }}
-        >
-          Delete
-        </div>
-        <div
           onClick={onUnsend}
           style={{ cursor: "pointer", padding: "4px 8px" }}
         >
           Unsend
+        </div>
+        <div
+          onClick={onDelete}
+          style={{ cursor: "pointer", padding: "4px 8px" }}
+        >
+          Delete
         </div>
       </div>
     );
@@ -122,16 +170,20 @@ const Chat: React.FC<ChatProps> = ({ friendId, onBack }) => {
     api.chat.updateMessagesAsRead.useMutation();
   useEffect(() => {
     if (friendId && session?.user?.id) {
-      console.log("user id:", session.user.id);
-      console.log("friendid:", friendId);
       updateMessagesAsRead(
         {
           userId: session.user.id,
           friendId: friendId,
         },
         {
-          onSuccess: () => {
+          onSuccess: (response) => {
             console.log("Messages marked as read.");
+            setMessages((prevMessages) =>
+              prevMessages.map((msg) => ({
+                ...msg,
+                read: true,
+              })),
+            );
             void refetch();
           },
           onError: (error) => {
@@ -423,6 +475,7 @@ const Chat: React.FC<ChatProps> = ({ friendId, onBack }) => {
       </div>
       <div
         ref={messagesContainerRef}
+        onDoubleClick={handleContainerDoubleClick}
         className="chatMessages flex-1 overflow-y-auto p-4"
       >
         {messages
@@ -430,11 +483,8 @@ const Chat: React.FC<ChatProps> = ({ friendId, onBack }) => {
           .map((msg) => (
             <div
               key={msg.id}
-              onContextMenu={(e) => {
-                if (msg.id !== undefined) {
-                  handleContextMenu(e, msg.id);
-                }
-              }}
+              onContextMenu={(e) => handleContextMenu(e, msg)}
+              onDoubleClick={(e) => handleMessageDoubleClick(e, msg)}
               className={`my-2 flex items-start ${
                 msg.senderId === session?.user?.id
                   ? "justify-end"
@@ -452,14 +502,19 @@ const Chat: React.FC<ChatProps> = ({ friendId, onBack }) => {
                     <div className="max-w-xs rounded-lg bg-[#555555] p-2 text-white">
                       <div>{msg.content}</div>
                     </div>
-                    <div className="mt-1 self-end text-xs text-gray-200">
+                    <div className="mt-1 self-end text-xs text-[#76776D]">
                       {format(new Date(msg.createdAt), "hh:mm a")}
                     </div>
                   </div>
                 ) : (
                   <div className="flex flex-row items-end gap-2">
-                    <div className="mb-1 self-end text-xs text-gray-200">
-                      {format(new Date(msg.createdAt), "hh:mm a")}
+                    <div className="flex flex-col text-end">
+                      {msg.senderId === session?.user?.id && msg.read && (
+                        <div className="text-xs text-[#76776D]">Read</div>
+                      )}
+                      <div className="self-end text-xs text-[#76776D]">
+                        {format(new Date(msg.createdAt), "hh:mm a")}
+                      </div>
                     </div>
                     <div className="max-w-xs rounded-lg bg-[#86D97B] p-2 text-black">
                       <div>{msg.content}</div>
@@ -495,13 +550,13 @@ const Chat: React.FC<ChatProps> = ({ friendId, onBack }) => {
           x={contextMenu.x}
           y={contextMenu.y}
           onDelete={() => {
-            if (contextMenu.messageId !== null) {
+            if (contextMenu.messageId != null) {
               deleteMessage(contextMenu.messageId);
               setContextMenu({ ...contextMenu, visible: false });
             }
           }}
           onUnsend={() => {
-            if (contextMenu.messageId !== null) {
+            if (contextMenu.messageId != null) {
               unsendMessage(contextMenu.messageId);
               setContextMenu({ ...contextMenu, visible: false });
             }
