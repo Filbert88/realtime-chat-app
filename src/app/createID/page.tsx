@@ -43,7 +43,7 @@ const CreateIDPage = () => {
         title: "ID added successfully!",
       });
       setLoading(false);
-      refetch();
+      void refetch();
     },
     onError: (error) => {
       setLoading(false);
